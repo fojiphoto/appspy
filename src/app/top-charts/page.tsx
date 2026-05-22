@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import AppCard from '@/components/AppCard';
 import FilterBar from '@/components/FilterBar';
 import { Loader2, TrendingUp } from 'lucide-react';
@@ -68,7 +68,7 @@ function AmazonIcon() {
   );
 }
 
-const STORE_TABS: { id: Store; label: string; Icon: () => JSX.Element; activeClass: string }[] = [
+const STORE_TABS: { id: Store; label: string; Icon: () => React.ReactElement; activeClass: string }[] = [
   { id: 'google', label: 'Android',         Icon: GoogleIcon, activeClass: 'bg-[#01875F] text-white' },
   { id: 'apple',  label: 'iOS',             Icon: AppleIcon,  activeClass: 'bg-[#0D96F6] text-white' },
   { id: 'amazon', label: 'Amazon',          Icon: AmazonIcon, activeClass: 'bg-[#FF9900] text-white' },
