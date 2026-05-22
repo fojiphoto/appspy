@@ -105,3 +105,92 @@ export function formatNumber(n: number): string {
   if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
   return n.toString();
 }
+
+// ─── Real-data based estimates (uses actual store fields) ─────────────────────
+
+// DAU retention ratio by category (% of install base active daily)
+const DAU_RATIO: Record<string, number> = {
+  GAME:               0.08,
+  GAME_ACTION:        0.10,
+  GAME_CASUAL:        0.12,
+  GAME_PUZZLE:        0.08,
+  GAME_STRATEGY:      0.07,
+  COMMUNICATION:      0.20,
+  SOCIAL:             0.18,
+  TOOLS:              0.12,
+  PRODUCTIVITY:       0.10,
+  EDUCATION:          0.08,
+  HEALTH_AND_FITNESS: 0.09,
+  SHOPPING:           0.06,
+  ENTERTAINMENT:      0.10,
+  default:            0.08,
+};
+
+// ARPDAU (avg revenue per DAU) by category — free/ad + IAP split
+const ARPDAU: Record<string, { ad: number; iap: number }> = {
+  GAME:               { ad: 0.005, iap: 0.060 },
+  GAME_ACTION:        { ad: 0.008, iap: 0.070 },
+  GAME_CASUAL:        { ad: 0.006, iap: 0.050 },
+  GAME_PUZZLE:        { ad: 0.005, iap: 0.040 },
+  GAME_STRATEGY:      { ad: 0.004, iap: 0.100 },
+  COMMUNICATION:      { ad: 0.002, iap: 0.005 },
+  SOCIAL:             { ad: 0.003, iap: 0.008 },
+  TOOLS:              { ad: 0.003, iap: 0.020 },
+  PRODUCTIVITY:       { ad: 0.004, iap: 0.030 },
+  EDUCATION:          { ad: 0.003, iap: 0.025 },
+  ENTERTAINMENT:      { ad: 0.004, iap: 0.030 },
+  default:            { ad: 0.003, iap: 0.020 },
+};
+
+/**
+ * Estimate current daily downloads from total install count + release date.
+ * Uses install velocity decay — newer apps have higher daily rate.
+ */
+export function estimateDailyDownloadsFromInstalls(
+  maxInstalls: number,
+  released: string,   // e.g. "Jul 9, 2025"
+): number {
+  const releaseTs = new Date(released).getTime();
+  if (!maxInstalls || isNaN(releaseTs)) return 0;
+  const ageDays = Math.max(1, (Date.now() - releaseTs) / 86_400_000);
+  const avgDaily = maxInstalls / ageDays;
+
+  // Apps lose velocity over time — current rate < historical average
+  const ageYears = ageDays / 365;
+  const decay = ageYears < 0.5 ? 1.0
+              : ageYears < 1   ? 0.65
+              : ageYears < 2   ? 0.35
+              : ageYears < 3   ? 0.18
+              : 0.08;
+  return Math.max(1, Math.round(avgDaily * decay));
+}
+
+/**
+ * Estimate Daily Active Users from install base + category retention.
+ */
+export function estimateDAU(maxInstalls: number, genreId: string): number {
+  const ratio = DAU_RATIO[genreId] ?? DAU_RATIO.default;
+  return Math.round(maxInstalls * ratio);
+}
+
+/**
+ * Estimate daily gross revenue from DAU + monetization model.
+ * For paid apps: dailyDownloads × price × 0.7 (store cut).
+ * For free apps: ad revenue + IAP revenue (if applicable).
+ */
+export function estimateDailyRevenueFromDAU(
+  dau: number,
+  free: boolean,
+  offersIAP: boolean,
+  price: number,
+  genreId: string,
+  dailyDownloads: number,
+): number {
+  if (!free && price > 0) {
+    return Math.round(dailyDownloads * price * 0.7);
+  }
+  const rates = ARPDAU[genreId] ?? ARPDAU.default;
+  const adRev  = dau * rates.ad;
+  const iapRev = offersIAP ? dau * rates.iap : 0;
+  return Math.round((adRev + iapRev) * 0.7);
+}

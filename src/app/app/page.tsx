@@ -3,7 +3,12 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-import { formatNumber, estimateDailyDownloads, estimateDailyRevenue } from '@/lib/estimates';
+import {
+  formatNumber,
+  estimateDailyDownloadsFromInstalls,
+  estimateDAU,
+  estimateDailyRevenueFromDAU,
+} from '@/lib/estimates';
 import { generateDownloadHistory, generateRankHistory, generateRatingHistory } from '@/lib/history';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
@@ -12,6 +17,7 @@ import {
   Star, Download, DollarSign, Calendar, ExternalLink, ArrowLeft,
   Shield, Smartphone, Globe, Package, Info, TrendingUp, BarChart2,
   MessageSquare, Clock, Layers, Lock, MapPin, Zap, ChevronRight,
+  Users, TrendingDown,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -575,8 +581,9 @@ function AppDetailContent() {
   );
   if (!detail) return null;
 
-  const dailyDownloads = estimateDailyDownloads(1, detail.genreId, 'us');
-  const dailyRevenue = estimateDailyRevenue(1, 'us');
+  const dailyDownloads = estimateDailyDownloadsFromInstalls(detail.maxInstalls, detail.released);
+  const dau            = estimateDAU(detail.maxInstalls, detail.genreId);
+  const dailyRevenue   = estimateDailyRevenueFromDAU(dau, detail.free, detail.offersIAP, detail.price, detail.genreId, dailyDownloads);
 
   const tabContent: Record<string, React.ReactNode> = {
     details:      <TabDetails d={detail} />,
@@ -636,20 +643,60 @@ function AppDetailContent() {
         </div>
 
         {/* Quick stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
-          {[
-            { icon: Download, label: 'Est. Daily Downloads', val: `~${formatNumber(dailyDownloads)}`, color: 'text-blue-400' },
-            { icon: DollarSign, label: 'Est. Daily Revenue', val: `~$${formatNumber(dailyRevenue)}`, color: 'text-green-400' },
-            { icon: Calendar, label: 'Last Updated', val: new Date(detail.updated * 1000).toLocaleDateString(), color: 'text-gray-300' },
-            { icon: Smartphone, label: 'Version', val: detail.version, color: 'text-gray-300' },
-          ].map(({ icon: Icon, label, val, color }) => (
-            <div key={label} className="bg-gray-800 rounded-xl p-3">
-              <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
-                <Icon size={12} /> {label}
-              </div>
-              <p className={`font-semibold text-sm ${color}`}>{val}</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 mt-4">
+          {/* Real data */}
+          <div className="bg-gray-800 rounded-xl p-3">
+            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
+              <Download size={12} /> Total Installs
             </div>
-          ))}
+            <p className="font-semibold text-sm text-blue-400">{detail.installs}</p>
+            <p className="text-gray-600 text-[10px] mt-0.5">Google Play</p>
+          </div>
+
+          {/* Estimate */}
+          <div className="bg-gray-800 rounded-xl p-3">
+            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
+              <TrendingDown size={12} /> Est. Daily Downloads
+            </div>
+            <p className="font-semibold text-sm text-purple-400">~{formatNumber(dailyDownloads)}</p>
+            <p className="text-gray-600 text-[10px] mt-0.5">Estimate</p>
+          </div>
+
+          {/* Estimate */}
+          <div className="bg-gray-800 rounded-xl p-3">
+            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
+              <Users size={12} /> Est. DAU
+            </div>
+            <p className="font-semibold text-sm text-cyan-400">~{formatNumber(dau)}</p>
+            <p className="text-gray-600 text-[10px] mt-0.5">Estimate</p>
+          </div>
+
+          {/* Estimate */}
+          <div className="bg-gray-800 rounded-xl p-3">
+            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
+              <DollarSign size={12} /> Est. Daily Revenue
+            </div>
+            <p className="font-semibold text-sm text-green-400">~${formatNumber(dailyRevenue)}</p>
+            <p className="text-gray-600 text-[10px] mt-0.5">Estimate</p>
+          </div>
+
+          {/* Real data */}
+          <div className="bg-gray-800 rounded-xl p-3">
+            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
+              <Calendar size={12} /> Last Updated
+            </div>
+            <p className="font-semibold text-sm text-gray-300">{new Date(detail.updated * 1000).toLocaleDateString()}</p>
+            <p className="text-gray-600 text-[10px] mt-0.5">Google Play</p>
+          </div>
+
+          {/* Real data */}
+          <div className="bg-gray-800 rounded-xl p-3">
+            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
+              <Smartphone size={12} /> Version
+            </div>
+            <p className="font-semibold text-sm text-gray-300">{detail.version}</p>
+            <p className="text-gray-600 text-[10px] mt-0.5">Google Play</p>
+          </div>
         </div>
       </div>
 
