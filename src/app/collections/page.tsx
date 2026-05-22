@@ -38,9 +38,9 @@ const CURATED = [
     iconBg: 'bg-emerald-500/15',
     iconColor: 'text-emerald-400',
     Icon: Sparkles,
-    gpParams:  { category: 'APPLICATION', collection: 'TOP_FREE',     sortBy: 'release', sortOrder: 'desc', num: '8' },
-    iosParams: { category: 'APPLICATION', collection: 'NEW_FREE',     sortBy: 'release', sortOrder: 'desc', num: '8', store: 'apple' },
-    href: (store: string) => `/market?store=${store}&view=explorer`,
+    gpParams:  { category: 'APPLICATION', collection: 'TOP_NEW_FREE', sortBy: 'installs', sortOrder: 'desc', num: '8' },
+    iosParams: { category: 'APPLICATION', collection: 'NEW_FREE',     sortBy: 'release',  sortOrder: 'desc', num: '8', store: 'apple' },
+    href: (store: string) => `/market?store=${store}&view=explorer&collection=${store === 'apple' ? 'NEW_FREE' : 'TOP_NEW_FREE'}`,
   },
   {
     id: 'new-games',
@@ -51,9 +51,9 @@ const CURATED = [
     iconBg: 'bg-purple-500/15',
     iconColor: 'text-purple-400',
     Icon: Gamepad2,
-    gpParams:  { category: 'GAME',        collection: 'TOP_FREE',     sortBy: 'release', sortOrder: 'desc', num: '8' },
-    iosParams: { category: 'GAME',        collection: 'NEW_FREE',     sortBy: 'release', sortOrder: 'desc', num: '8', store: 'apple' },
-    href: (store: string) => `/market?store=${store}&view=explorer`,
+    gpParams:  { category: 'GAME',        collection: 'TOP_NEW_FREE', sortBy: 'installs', sortOrder: 'desc', num: '8' },
+    iosParams: { category: 'GAME',        collection: 'NEW_FREE',     sortBy: 'release',  sortOrder: 'desc', num: '8', store: 'apple' },
+    href: (store: string) => `/market?store=${store}&view=explorer&collection=${store === 'apple' ? 'NEW_FREE' : 'TOP_NEW_FREE'}`,
   },
   {
     id: 'top-free',
@@ -313,6 +313,7 @@ export default function CollectionsPage() {
   const [store, setStore] = useState<'google' | 'apple'>('google');
   const [newApps, setNewApps] = useState<any[]>([]);
   const [newLoading, setNewLoading] = useState(true);
+  const [newSource, setNewSource] = useState<string>('');
   const [showCreate, setShowCreate] = useState(false);
   const [customCols, setCustomCols] = useState<{ id: string; name: string; desc: string }[]>([]);
 
@@ -324,17 +325,21 @@ export default function CollectionsPage() {
     } catch { /* ignore */ }
   }, []);
 
-  // Fetch new releases — re-runs when store changes
+  // Fetch new releases — uses /api/new-releases (DataForSEO for Google, Apple RSS for Apple)
   const fetchNew = useCallback(() => {
     setNewLoading(true);
     setNewApps([]);
-    const params = store === 'apple'
-      ? { category: 'APPLICATION', collection: 'NEW_FREE', sortBy: 'release', sortOrder: 'desc', num: '30', store: 'apple' }
-      : { category: 'APPLICATION', collection: 'TOP_FREE', sortBy: 'release', sortOrder: 'desc', num: '30', store: 'google' };
-    fetch(`/api/market?${new URLSearchParams(params)}`)
+    const params = new URLSearchParams({
+      store,
+      category: 'APPLICATION',
+      country:  'us',
+      num:      '30',
+      type:     'free',
+    });
+    fetch(`/api/new-releases?${params}`)
       .then(r => r.json())
-      .then(d => setNewApps(d.apps || []))
-      .catch(() => setNewApps([]))
+      .then(d => { setNewApps(d.apps || []); setNewSource(d.source || ''); })
+      .catch(() => { setNewApps([]); setNewSource('error'); })
       .finally(() => setNewLoading(false));
   }, [store]);
 
@@ -399,10 +404,38 @@ export default function CollectionsPage() {
             </Link>
           </div>
 
+          {/* Data source badge */}
+          {!newLoading && newApps.length > 0 && (
+            <div className="flex items-center gap-2 mb-3">
+              {newSource === 'dataforseo' && (
+                <span className="text-[10px] bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">
+                  ✓ DataForSEO — real dates
+                </span>
+              )}
+              {newSource === 'apple-rss' && (
+                <span className="text-[10px] bg-blue-500/10 border border-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full">
+                  ✓ Apple RSS — real dates
+                </span>
+              )}
+            </div>
+          )}
+
           {newLoading ? (
             <div className="flex items-center gap-2 text-gray-500 py-6 pl-1">
               <Loader2 className="animate-spin" size={15} />
               <span className="text-sm">Loading new releases from {storeName}…</span>
+            </div>
+          ) : newSource === 'unconfigured' ? (
+            <div className="bg-amber-500/8 border border-amber-500/20 rounded-xl p-5 text-sm">
+              <p className="text-amber-400 font-semibold mb-1">⚙️ DataForSEO not configured</p>
+              <p className="text-amber-400/70 text-xs leading-relaxed">
+                Add <code className="bg-gray-800 px-1 rounded">DATAFORSEO_LOGIN</code> and{' '}
+                <code className="bg-gray-800 px-1 rounded">DATAFORSEO_PASSWORD</code> to{' '}
+                <code className="bg-gray-800 px-1 rounded">.env.local</code> to enable Google Play new releases.
+                <br />Get credentials from{' '}
+                <a href="https://app.dataforseo.com/api-access" target="_blank" rel="noopener noreferrer"
+                  className="text-amber-400 underline">app.dataforseo.com/api-access</a>
+              </p>
             </div>
           ) : (
             <div className="flex gap-3 overflow-x-auto pb-3"

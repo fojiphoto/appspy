@@ -47,10 +47,21 @@ const CATEGORIES = [
   { value: 'FINANCE', label: 'Finance' },
 ];
 
-const COLLECTIONS = [
-  { value: 'TOP_FREE', label: 'Top Free' },
-  { value: 'TOP_PAID', label: 'Top Paid' },
-  { value: 'GROSSING', label: 'Top Grossing' },
+const GOOGLE_COLLECTIONS = [
+  { value: 'TOP_FREE',       label: 'Top Free' },
+  { value: 'TOP_PAID',       label: 'Top Paid' },
+  { value: 'GROSSING',       label: 'Top Grossing' },
+  { value: 'TOP_NEW_FREE',   label: '🆕 Top New Free' },
+  { value: 'TOP_NEW_PAID',   label: '🆕 Top New Paid' },
+  { value: 'MOVERS_SHAKERS', label: '📈 Movers & Shakers' },
+];
+
+const APPLE_COLLECTIONS = [
+  { value: 'TOP_FREE',  label: 'Top Free' },
+  { value: 'TOP_PAID',  label: 'Top Paid' },
+  { value: 'GROSSING',  label: 'Top Grossing' },
+  { value: 'NEW_FREE',  label: '🆕 New Free Apps' },
+  { value: 'NEW_PAID',  label: '🆕 New Paid Apps' },
 ];
 
 const COUNTRIES = [
@@ -116,8 +127,11 @@ function ExplorerView({ store, filters, setFilters }: {
   const [sortBy, setSortBy] = useState('installs');
   const [sortOrder, setSortOrder] = useState('desc');
   const isApple = store === 'apple';
-  const SORT_OPTIONS = isApple ? SORT_OPTIONS_APPLE : SORT_OPTIONS_GOOGLE;
-  const hasRealDates = isApple; // Only Apple has real release dates in list results
+  const SORT_OPTIONS  = isApple ? SORT_OPTIONS_APPLE : SORT_OPTIONS_GOOGLE;
+  const COLLECTIONS   = isApple ? APPLE_COLLECTIONS  : GOOGLE_COLLECTIONS;
+  // Google has real dates for DataForSEO collections (TOP_NEW_FREE etc); Apple always has dates
+  const DFS_COLS      = new Set(['TOP_NEW_FREE', 'TOP_NEW_PAID', 'MOVERS_SHAKERS']);
+  const hasRealDates  = isApple || DFS_COLS.has(filters.collection);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
 
@@ -224,6 +238,7 @@ function ExplorerView({ store, filters, setFilters }: {
               {COLLECTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
           </div>
+
           <div>
             <label className="text-gray-500 text-xs uppercase tracking-wide mb-1.5 block">Country</label>
             <select value={filters.country} onChange={e => setFilters((f: any) => ({ ...f, country: e.target.value }))}
@@ -240,15 +255,21 @@ function ExplorerView({ store, filters, setFilters }: {
         </div>
       )}
 
-      {/* Google Play: real release dates unavailable in chart listings */}
+      {/* Info notices */}
       {!hasRealDates && !loading && apps.length > 0 && (
         <div className="flex items-start gap-2.5 bg-amber-500/8 border border-amber-500/20 text-amber-400/80 text-xs rounded-lg px-4 py-2.5 mb-4">
           <span className="text-amber-500 text-base leading-none mt-0.5">ℹ</span>
           <span>
-            <strong className="text-amber-400">Release dates unavailable for Google Play chart listings.</strong>{' '}
-            Google's public API does not expose release dates in bulk chart results — only individual app detail lookups return real dates.
-            Switch to <strong>App Store</strong> to see real release dates via Apple's official RSS feed.
+            <strong className="text-amber-400">Release dates unavailable for this Google Play chart.</strong>{' '}
+            Google's public API does not expose release dates in bulk chart results.
+            Use <strong>🆕 Top New Free</strong> or <strong>🆕 Top New Paid</strong> from the Chart Type filter to see apps with real release dates (powered by DataForSEO).
           </span>
+        </div>
+      )}
+      {hasRealDates && !isApple && !loading && apps.length > 0 && DFS_COLS.has(filters.collection) && (
+        <div className="flex items-center gap-2 bg-emerald-500/8 border border-emerald-500/20 text-emerald-400/80 text-xs rounded-lg px-4 py-2 mb-4">
+          <span className="text-emerald-400">✓</span>
+          <span>Real release dates powered by <strong className="text-emerald-400">DataForSEO</strong> — Google Play {GOOGLE_COLLECTIONS.find(c => c.value === filters.collection)?.label} chart</span>
         </div>
       )}
 
