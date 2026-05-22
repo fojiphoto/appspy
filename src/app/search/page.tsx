@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import Navbar from '@/components/Navbar';
+
 import Link from 'next/link';
 import { Search, Star, Download, Loader2 } from 'lucide-react';
 import { formatNumber, estimateDailyDownloads } from '@/lib/estimates';
@@ -120,7 +120,7 @@ function SearchContent() {
 export default function SearchPage() {
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      <Navbar />
+
       <Suspense fallback={<div className="flex items-center justify-center py-16 text-gray-400"><Loader2 className="animate-spin mr-2" />Loading…</div>}>
         <SearchContent />
       </Suspense>

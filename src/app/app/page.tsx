@@ -2,7 +2,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Navbar from '@/components/Navbar';
+
 import { formatNumber, estimateDailyDownloads, estimateDailyRevenue } from '@/lib/estimates';
 import { generateDownloadHistory, generateRankHistory, generateRatingHistory } from '@/lib/history';
 import {
@@ -685,7 +685,7 @@ function AppDetailContent() {
 export default function AppPage() {
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      <Navbar />
+
       <Suspense fallback={
         <div className="flex items-center justify-center py-24 text-gray-400 gap-2">
           <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
