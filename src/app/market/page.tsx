@@ -63,13 +63,17 @@ const COUNTRIES = [
   { value: 'au', flag: '🇦🇺', label: 'Australia' }, { value: 'ca', flag: '🇨🇦', label: 'Canada' },
 ];
 
-const SORT_OPTIONS = [
-  { value: 'release', label: 'Release Date' },
+// Sort options — "Release Date" only for Apple (Google Play list has no real dates)
+const SORT_OPTIONS_GOOGLE = [
   { value: 'installs', label: 'Installs' },
-  { value: 'daily', label: 'Daily Installs' },
+  { value: 'daily', label: 'Est. Daily Installs' },
   { value: 'rating', label: 'Rating' },
   { value: 'reviews', label: 'Reviews' },
   { value: 'name', label: 'App Name' },
+];
+const SORT_OPTIONS_APPLE = [
+  { value: 'release', label: 'Release Date' },
+  ...SORT_OPTIONS_GOOGLE,
 ];
 
 // --- Stat card ---
@@ -109,8 +113,11 @@ function ExplorerView({ store, filters, setFilters }: {
 }) {
   const [apps, setApps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState('release');
+  const [sortBy, setSortBy] = useState('installs');
   const [sortOrder, setSortOrder] = useState('desc');
+  const isApple = store === 'apple';
+  const SORT_OPTIONS = isApple ? SORT_OPTIONS_APPLE : SORT_OPTIONS_GOOGLE;
+  const hasRealDates = isApple; // Only Apple has real release dates in list results
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
 
@@ -118,6 +125,7 @@ function ExplorerView({ store, filters, setFilters }: {
     setLoading(true);
     try {
       const p = new URLSearchParams({
+        store,
         category: filters.category, collection: filters.collection,
         country: filters.country, num: String(filters.num),
         sortBy, sortOrder,
@@ -126,7 +134,7 @@ function ExplorerView({ store, filters, setFilters }: {
       setApps(data.apps || []);
     } catch { setApps([]); }
     finally { setLoading(false); }
-  }, [filters, sortBy, sortOrder]);
+  }, [store, filters, sortBy, sortOrder]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -136,15 +144,19 @@ function ExplorerView({ store, filters, setFilters }: {
   }
 
   function exportCSV() {
-    const headers = ['#', 'App ID', 'Title', 'Developer', 'Released', 'Age', 'Installs', 'Daily Installs', 'Rating', 'Reviews', 'Category', 'Status'];
-    const rows = apps.map((a, i) => [i + 1, a.appId, `"${a.title}"`, `"${a.developer}"`, a.releasedDate, `"${a.ageText}"`, a.minInstalls, a.dailyInstalls, a.score || 0, a.reviews, a.genre, 'Live']);
-    const blob = new Blob([[headers, ...rows].map(r => r.join(',')).join('\n')], { type: 'text/csv' });
+    const hdrs = hasRealDates
+      ? ['#', 'App ID', 'Title', 'Developer', 'Released', 'Age', 'Installs', 'Est. Daily', 'Rating', 'Reviews', 'Category']
+      : ['#', 'App ID', 'Title', 'Developer', 'Installs', 'Est. Daily', 'Rating', 'Reviews', 'Category'];
+    const rows = apps.map((a, i) => hasRealDates
+      ? [i+1, a.appId, `"${a.title}"`, `"${a.developer}"`, a.releasedDate||'', a.ageText||'', a.installs||'', a.estDailyInstalls, a.score||0, a.reviews, a.genre||'']
+      : [i+1, a.appId, `"${a.title}"`, `"${a.developer}"`, a.installs||'', a.estDailyInstalls, a.score||0, a.reviews, a.genre||'']
+    );
+    const csv = [hdrs, ...rows].map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
-    Object.assign(document.createElement('a'), { href: url, download: `appspy-market-${Date.now()}.csv` }).click();
+    Object.assign(document.createElement('a'), { href: url, download: `appspy-market-${store}-${Date.now()}.csv` }).click();
     URL.revokeObjectURL(url);
   }
-
-  const sortLabel = SORT_OPTIONS.find(s => s.value === sortBy)?.label || 'Release Date';
 
   return (
     <>
@@ -172,7 +184,7 @@ function ExplorerView({ store, filters, setFilters }: {
           {sortOrder === 'desc' ? 'Descending' : 'Ascending'}
         </button>
 
-        <button onClick={() => { setSortBy('release'); setSortOrder('desc'); setFilters({ category: 'APPLICATION', collection: 'TOP_FREE', country: 'us', num: 100 }); }}
+        <button onClick={() => { setSortBy('installs'); setSortOrder('desc'); setFilters({ category: 'APPLICATION', collection: 'TOP_FREE', country: 'us', num: 100 }); }}
           className="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-400 hover:text-white text-sm px-3 py-2 rounded-lg transition-colors">
           <RotateCcw size={13} /> Reset
         </button>
@@ -228,6 +240,18 @@ function ExplorerView({ store, filters, setFilters }: {
         </div>
       )}
 
+      {/* Google Play: real release dates unavailable in chart listings */}
+      {!hasRealDates && !loading && apps.length > 0 && (
+        <div className="flex items-start gap-2.5 bg-amber-500/8 border border-amber-500/20 text-amber-400/80 text-xs rounded-lg px-4 py-2.5 mb-4">
+          <span className="text-amber-500 text-base leading-none mt-0.5">ℹ</span>
+          <span>
+            <strong className="text-amber-400">Release dates unavailable for Google Play chart listings.</strong>{' '}
+            Google's public API does not expose release dates in bulk chart results — only individual app detail lookups return real dates.
+            Switch to <strong>App Store</strong> to see real release dates via Apple's official RSS feed.
+          </span>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center py-24 gap-2 text-gray-400">
           <Loader2 className="animate-spin" size={18} /> Fetching apps…
@@ -240,10 +264,10 @@ function ExplorerView({ store, filters, setFilters }: {
                 <tr>
                   <th className="text-left px-3 py-2.5 text-xs font-semibold text-gray-500 w-10">#</th>
                   <th className="text-left px-3 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">App</th>
-                  <SortTh col="release" label="Released" sortBy={sortBy} sortOrder={sortOrder} onSort={toggleSort} />
-                  <th className="text-left px-3 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">Age</th>
+                  {hasRealDates && <SortTh col="release" label="Released" sortBy={sortBy} sortOrder={sortOrder} onSort={toggleSort} />}
+                  {hasRealDates && <th className="text-left px-3 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">Age</th>}
                   <SortTh col="installs" label="Installs" sortBy={sortBy} sortOrder={sortOrder} onSort={toggleSort} />
-                  <SortTh col="daily" label="Daily Installs" sortBy={sortBy} sortOrder={sortOrder} onSort={toggleSort} />
+                  <SortTh col="daily" label="Est. Daily" sortBy={sortBy} sortOrder={sortOrder} onSort={toggleSort} />
                   <SortTh col="rating" label="Rating" sortBy={sortBy} sortOrder={sortOrder} onSort={toggleSort} />
                   <SortTh col="reviews" label="Reviews" sortBy={sortBy} sortOrder={sortOrder} onSort={toggleSort} />
                   <th className="text-left px-3 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">Category</th>
@@ -264,10 +288,20 @@ function ExplorerView({ store, filters, setFilters }: {
                         </div>
                       </Link>
                     </td>
-                    <td className="px-3 py-3 text-gray-400 text-sm whitespace-nowrap">{app.releasedDate}</td>
-                    <td className="px-3 py-3 text-gray-500 text-xs whitespace-nowrap">{app.ageText}</td>
+                    {hasRealDates && (
+                      <td className="px-3 py-3 text-gray-400 text-sm whitespace-nowrap">
+                        {app.hasRealDate ? app.releasedDate : <span className="text-gray-700">—</span>}
+                      </td>
+                    )}
+                    {hasRealDates && (
+                      <td className="px-3 py-3 text-gray-500 text-xs whitespace-nowrap">
+                        {app.hasRealDate ? app.ageText : <span className="text-gray-700">—</span>}
+                      </td>
+                    )}
                     <td className="px-3 py-3 text-gray-300 text-sm whitespace-nowrap">{app.installs || '—'}</td>
-                    <td className="px-3 py-3 text-blue-400 text-sm whitespace-nowrap">~{formatNumber(app.dailyInstalls)}</td>
+                    <td className="px-3 py-3 text-blue-400 text-sm whitespace-nowrap">
+                      ~{formatNumber(app.estDailyInstalls)}
+                    </td>
                     <td className="px-3 py-3 whitespace-nowrap">
                       {app.score ? (
                         <span className="flex items-center gap-1 text-yellow-400 text-sm">
@@ -301,7 +335,7 @@ function ExplorerView({ store, filters, setFilters }: {
                     <Star size={9} fill="currentColor" /> {app.score.toFixed(1)}
                   </span>
                 ) : <span />}
-                <span className="text-blue-400 text-xs">~{formatNumber(app.dailyInstalls)}/d</span>
+                <span className="text-blue-400 text-xs">~{formatNumber(app.estDailyInstalls)}/d</span>
               </div>
             </Link>
           ))}
