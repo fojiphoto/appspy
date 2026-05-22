@@ -16,10 +16,9 @@ const CATEGORIES = [
 ];
 
 const COLLECTIONS = [
-  { value: 'topselling_free', label: 'Top Free' },
-  { value: 'topselling_paid', label: 'Top Paid' },
-  { value: 'topgrossing', label: 'Top Grossing' },
-  { value: 'movers_shakers', label: 'Trending' },
+  { value: 'TOP_FREE', label: 'Top Free' },
+  { value: 'TOP_PAID', label: 'Top Paid' },
+  { value: 'GROSSING', label: 'Top Grossing' },
 ];
 
 const COUNTRIES = [

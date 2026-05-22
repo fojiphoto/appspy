@@ -25,7 +25,7 @@ export default function Home() {
   const [error, setError] = useState('');
   const [filters, setFilters] = useState({
     category: 'GAME',
-    collection: 'topselling_free',
+    collection: 'TOP_FREE',
     country: 'us',
   });
 
@@ -52,10 +52,9 @@ export default function Home() {
   }
 
   const collectionLabels: Record<string, string> = {
-    topselling_free: 'Top Free Apps',
-    topselling_paid: 'Top Paid Apps',
-    topgrossing: 'Top Grossing',
-    movers_shakers: 'Trending Now',
+    TOP_FREE: 'Top Free Apps',
+    TOP_PAID: 'Top Paid Apps',
+    GROSSING: 'Top Grossing',
   };
 
   return (

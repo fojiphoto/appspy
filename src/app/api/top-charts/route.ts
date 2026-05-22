@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const category = searchParams.get('category') || 'GAME';
   const country = searchParams.get('country') || 'us';
-  const collection = searchParams.get('collection') || 'topselling_free';
+  const collection = searchParams.get('collection') || 'TOP_FREE';
   const num = Math.min(parseInt(searchParams.get('num') || '50'), 100);
 
   try {
