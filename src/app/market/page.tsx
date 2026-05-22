@@ -540,47 +540,61 @@ function SearchView({ store, country }: { store: string; country: string }) {
 // --- Page content with searchParams ---
 function MarketContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const store = (searchParams.get('store') || 'google') as 'google' | 'apple' | 'amazon';
-  const view = (searchParams.get('view') || 'explorer') as 'explorer' | 'search';
+  const router       = useRouter();
+  const store  = (searchParams.get('store') || 'google') as 'google' | 'apple' | 'amazon';
+  const view   = (searchParams.get('view')  || 'explorer') as 'explorer' | 'search';
   const [filters, setFilters] = useState({ category: 'APPLICATION', collection: 'TOP_FREE', country: 'us', num: 100 });
+
+  // Reset collection to TOP_FREE whenever the store changes so we never
+  // carry over a collection that doesn't exist on the new store
+  const prevStoreRef = useRef(store);
+  useEffect(() => {
+    if (prevStoreRef.current !== store) {
+      prevStoreRef.current = store;
+      setFilters(f => ({ ...f, collection: 'TOP_FREE' }));
+    }
+  }, [store]);
 
   const stats = STORE_STATS[store];
   const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 
-  function nav(newStore?: string, newView?: string) {
-    const p = new URLSearchParams({ store: newStore || store, view: newView || view });
-    router.push(`/market?${p}`);
+  // View-tab navigation (keeps current store)
+  function navView(newView: string) {
+    router.push(`/market?store=${store}&view=${newView}`);
   }
 
-  const storeBtnBase = 'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors';
+  const storeBtnBase = 'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer relative z-10';
 
   return (
     <div className="min-h-screen bg-[#0d0f14] text-white">
-      {/* Top nav bar */}
+      {/* Top nav bar — two clearly separated rows */}
       <div className="border-b border-gray-800 bg-[#111318] px-6">
-        <div className="flex items-center gap-0">
-          {/* Store switcher */}
-          <div className="flex items-center gap-1 mr-6 py-3">
-            <button onClick={() => nav('google')} className={`${storeBtnBase} ${store === 'google' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'text-gray-500 hover:text-gray-300'}`}>
+        <div className="flex items-stretch">
+          {/* Store switcher — its own isolated block */}
+          <div className="flex items-center gap-1 py-3 pr-6 mr-2 border-r border-gray-700/60 shrink-0">
+            <Link
+              href={`/market?store=google&view=${view}`}
+              className={`${storeBtnBase} ${store === 'google' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'text-gray-500 hover:text-gray-300'}`}>
               <GooglePlayIcon size={15} /> Google Play
-            </button>
-            <button onClick={() => nav('apple')} className={`${storeBtnBase} ${store === 'apple' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'text-gray-500 hover:text-gray-300'}`}>
+            </Link>
+            <Link
+              href={`/market?store=apple&view=${view}`}
+              className={`${storeBtnBase} ${store === 'apple' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'text-gray-500 hover:text-gray-300'}`}>
               <AppleStoreIcon size={15} /> App Store
-            </button>
-            <button onClick={() => nav('amazon')} className={`${storeBtnBase} ${store === 'amazon' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}>
+            </Link>
+            <Link
+              href={`/market?store=amazon&view=${view}`}
+              className={`${storeBtnBase} ${store === 'amazon' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}>
               <AmazonIcon size={15} /> Amazon
-            </button>
+            </Link>
           </div>
 
-          <div className="w-px h-7 bg-gray-700/60 mr-4" />
-
           {/* View tabs */}
-          <button onClick={() => nav(undefined, 'explorer')}
+          <button onClick={() => navView('explorer')}
             className={`px-4 py-4 text-sm font-medium border-b-2 transition-colors ${view === 'explorer' ? 'border-purple-500 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}>
             App Market Explorer
           </button>
-          <button onClick={() => nav(undefined, 'search')}
+          <button onClick={() => navView('search')}
             className={`px-4 py-4 text-sm font-medium border-b-2 transition-colors ${view === 'search' ? 'border-purple-500 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}>
             Real-Time Store Search
           </button>
