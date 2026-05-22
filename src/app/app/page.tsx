@@ -637,6 +637,68 @@ function AdCard({ ad }: { ad: any }) {
   );
 }
 
+function AdLibraryFallback({ developer }: { developer: string }) {
+  const fbUrl  = `https://www.facebook.com/ads/library/?search_terms=${encodeURIComponent(developer)}&ad_type=ALL&country=US&active_status=active&media_type=all`;
+  const ttUrl  = `https://ads.tiktok.com/business/creativecenter/inspiration/topads/pc/en?keyword=${encodeURIComponent(developer)}`;
+  const gglUrl = `https://adstransparency.google.com/?region=anywhere&query=${encodeURIComponent(developer)}`;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-sm font-semibold text-gray-300 mb-1">Ad Intelligence</h3>
+        <p className="text-gray-500 text-xs">Search ads running by <span className="text-gray-300">{developer}</span> across platforms</p>
+      </div>
+
+      {/* Search links */}
+      <div className="grid grid-cols-1 gap-3">
+        {/* Meta */}
+        <a href={fbUrl} target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-4 bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-blue-600 transition-colors group">
+          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shrink-0 text-white font-bold text-lg">f</div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white text-sm font-semibold">Facebook & Instagram Ads</p>
+            <p className="text-gray-500 text-xs mt-0.5">Search active ads by {developer} on Meta Ad Library</p>
+            <p className="text-blue-400 text-xs mt-1">Free • Real data • All ad formats</p>
+          </div>
+          <LinkIcon size={14} className="text-gray-600 group-hover:text-blue-400 shrink-0" />
+        </a>
+
+        {/* TikTok */}
+        <a href={ttUrl} target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-4 bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-pink-600 transition-colors group">
+          <div className="w-10 h-10 rounded-xl bg-black border border-gray-700 flex items-center justify-center shrink-0">
+            <span className="text-white font-bold text-sm">TT</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white text-sm font-semibold">TikTok Creative Center</p>
+            <p className="text-gray-500 text-xs mt-0.5">Browse top-performing TikTok ads & creatives</p>
+            <p className="text-pink-400 text-xs mt-1">Free • CTR data • Video creatives</p>
+          </div>
+          <LinkIcon size={14} className="text-gray-600 group-hover:text-pink-400 shrink-0" />
+        </a>
+
+        {/* Google */}
+        <a href={gglUrl} target="_blank" rel="noopener noreferrer"
+          className="flex items-center gap-4 bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-green-600 transition-colors group">
+          <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shrink-0">
+            <span className="text-blue-500 font-bold text-sm">G</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white text-sm font-semibold">Google Ads Transparency</p>
+            <p className="text-gray-500 text-xs mt-0.5">View Google & YouTube ads by {developer}</p>
+            <p className="text-green-400 text-xs mt-1">Free • Official • Search & Display</p>
+          </div>
+          <LinkIcon size={14} className="text-gray-600 group-hover:text-green-400 shrink-0" />
+        </a>
+      </div>
+
+      <p className="text-gray-700 text-xs text-center pt-1">
+        Each link opens pre-searched results for this developer
+      </p>
+    </div>
+  );
+}
+
 function TabAds({ developer, country = 'us' }: { developer: string; country?: string }) {
   const [ads, setAds]         = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -673,23 +735,8 @@ function TabAds({ developer, country = 'us' }: { developer: string; country?: st
     </div>
   );
 
-  if (source === 'unconfigured') return (
-    <div className="bg-yellow-900/20 border border-yellow-700/40 rounded-xl p-5 text-sm">
-      <p className="text-yellow-300 font-semibold mb-1">Meta Ad Library not configured</p>
-      <p className="text-yellow-600 text-xs mb-3">Add your Facebook access token to enable ad intelligence.</p>
-      <code className="block bg-gray-900 text-gray-300 text-xs p-3 rounded-lg">
-        META_ACCESS_TOKEN=your_token_here
-      </code>
-      <p className="text-gray-600 text-xs mt-2">
-        Get a free token at developers.facebook.com → Tools → Graph API Explorer
-      </p>
-    </div>
-  );
-
-  if (error) return (
-    <div className="bg-red-900/20 border border-red-800 rounded-xl p-4 text-red-400 text-sm">
-      Error: {error}
-    </div>
+  if (source === 'unconfigured' || source === 'error') return (
+    <AdLibraryFallback developer={developer} />
   );
 
   return (
