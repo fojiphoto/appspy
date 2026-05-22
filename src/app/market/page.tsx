@@ -353,7 +353,7 @@ function ExplorerView({ store, filters, setFilters }: {
                           </div>
                         </Link>
                       ) : (
-                        <Link href={`/app?id=${app.appId}`} className="flex items-center gap-3 group">
+                        <Link href={`/app?id=${app.appId}${isApple ? '&store=apple' : ''}`} className="flex items-center gap-3 group">
                           <img src={app.icon} alt={app.title} referrerPolicy="no-referrer"
                             className="w-10 h-10 rounded-xl shrink-0 object-cover border border-gray-700" />
                           <div className="min-w-0">
@@ -420,7 +420,7 @@ function ExplorerView({ store, filters, setFilters }: {
               </div>
             </Link>
           ) : (
-            <Link key={app.appId} href={`/app?id=${app.appId}`}
+            <Link key={app.appId} href={`/app?id=${app.appId}${isApple ? '&store=apple' : ''}`}
               className="bg-gray-900 border border-gray-800 hover:border-purple-600 rounded-xl p-3 transition-colors">
               <img src={app.icon} alt={app.title} referrerPolicy="no-referrer"
                 className="w-full aspect-square rounded-xl object-cover mb-2 border border-gray-800" />
@@ -454,7 +454,7 @@ function SearchView({ store, country }: { store: string; country: string }) {
     setLoading(true);
     setSearched(true);
     try {
-      const data = await fetch(`/api/search?q=${encodeURIComponent(q)}&country=${country}`).then(r => r.json());
+      const data = await fetch(`/api/search?q=${encodeURIComponent(q)}&country=${country}&store=${store}`).then(r => r.json());
       setResults(data.results || []);
     } catch { setResults([]); }
     finally { setLoading(false); }
@@ -505,7 +505,7 @@ function SearchView({ store, country }: { store: string; country: string }) {
                 <tr key={app.appId} className="hover:bg-gray-800/40 transition-colors">
                   <td className="px-4 py-3 text-gray-500 text-sm">{i + 1}</td>
                   <td className="px-4 py-3">
-                    <Link href={`/app?id=${app.appId}`} className="flex items-center gap-3 group">
+                    <Link href={`/app?id=${app.appId}${store === 'apple' ? '&store=apple' : ''}`} className="flex items-center gap-3 group">
                       <img src={app.icon} alt={app.title} referrerPolicy="no-referrer"
                         className="w-10 h-10 rounded-xl shrink-0 object-cover border border-gray-700" />
                       <div>

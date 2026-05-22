@@ -255,18 +255,18 @@ function TabRatings({ d }: { d: AppDetail }) {
   );
 }
 
-function TabReviews({ appId }: { appId: string }) {
+function TabReviews({ appId, store = 'google' }: { appId: string; store?: string }) {
   const [reviews, setReviews] = useState<any[]>([]);
   const [sort, setSort] = useState('NEWEST');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/reviews?appId=${appId}&sort=${sort}`)
+    fetch(`/api/reviews?appId=${appId}&sort=${sort}&store=${store}`)
       .then(r => r.json())
       .then(d => setReviews(d.reviews || []))
       .finally(() => setLoading(false));
-  }, [appId, sort]);
+  }, [appId, sort, store]);
 
   return (
     <div className="space-y-4">
@@ -509,16 +509,16 @@ function TabLocalization({ d }: { d: AppDetail }) {
   );
 }
 
-function TabRecommended({ appId }: { appId: string }) {
+function TabRecommended({ appId, store = 'google' }: { appId: string; store?: string }) {
   const [apps, setApps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/similar?appId=${appId}`)
+    fetch(`/api/similar?appId=${appId}&store=${store}`)
       .then(r => r.json())
       .then(d => setApps(d.apps || []))
       .finally(() => setLoading(false));
-  }, [appId]);
+  }, [appId, store]);
 
   if (loading) return <p className="text-gray-500 text-sm">Loading similar apps…</p>;
   return (
@@ -1002,8 +1002,9 @@ function AmazonAppDetail({ appId }: { appId: string }) {
 
 // ─── Google Play app detail ───────────────────────────────────────────────────
 
-function GoogleAppDetail({ appId }: { appId: string }) {
+function GoogleAppDetail({ appId, store = 'google' }: { appId: string; store?: string }) {
   const router = useRouter();
+  const isApple = store === 'apple';
   const [activeTab, setActiveTab] = useState('details');
   const [detail, setDetail] = useState<AppDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1012,7 +1013,7 @@ function GoogleAppDetail({ appId }: { appId: string }) {
   useEffect(() => {
     if (!appId) return;
     setLoading(true);
-    fetch(`/api/app-detail?appId=${appId}`)
+    fetch(`/api/app-detail?appId=${appId}&store=${store}`)
       .then(r => r.json())
       .then(data => {
         if (data.error) throw new Error(data.error);
@@ -1020,7 +1021,7 @@ function GoogleAppDetail({ appId }: { appId: string }) {
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
-  }, [appId]);
+  }, [appId, store]);
 
   if (loading) return (
     <div className="flex items-center justify-center py-24 text-gray-400 gap-2">
@@ -1044,7 +1045,7 @@ function GoogleAppDetail({ appId }: { appId: string }) {
     downloads:    <TabDownloads appId={appId} dailyDownloads={dailyDownloads} />,
     ranks:        <TabRanks appId={appId} currentRank={1} />,
     ratings:      <TabRatings d={detail} />,
-    reviews:      <TabReviews appId={appId} />,
+    reviews:      <TabReviews appId={appId} store={store} />,
     timeline:     <TabTimeline d={detail} />,
     monetization: <TabMonetization d={detail} dailyRevenue={dailyRevenue} />,
     ads:          <TabAds developer={detail.developer} country="us" />,
@@ -1053,7 +1054,7 @@ function GoogleAppDetail({ appId }: { appId: string }) {
     sdks:         <TabSDKs appId={appId} />,
     compliance:   <TabCompliance d={detail} />,
     localization: <TabLocalization d={detail} />,
-    recommended:  <TabRecommended appId={appId} />,
+    recommended:  <TabRecommended appId={appId} store={store} />,
   };
 
   return (
@@ -1078,7 +1079,7 @@ function GoogleAppDetail({ appId }: { appId: string }) {
                 <Star size={14} fill="currentColor" /> {detail.score?.toFixed(1)}
                 <span className="text-gray-500 font-normal">({formatNumber(detail.ratings)})</span>
               </span>
-              <span className="text-gray-400">{detail.installs} installs</span>
+              {detail.installs && detail.installs !== '—' && <span className="text-gray-400">{detail.installs} installs</span>}
               <span className="text-gray-400">{detail.genre}</span>
               <span className={detail.free ? 'text-green-400' : 'text-orange-400'}>{detail.free ? 'Free' : `$${detail.price}`}</span>
             </div>
@@ -1087,72 +1088,68 @@ function GoogleAppDetail({ appId }: { appId: string }) {
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2">
             <a href={detail.url} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-2 rounded-lg transition-colors">
-              <ExternalLink size={13} /> Play Store
+              className={`flex items-center gap-1.5 text-white text-xs px-3 py-2 rounded-lg transition-colors ${isApple ? 'bg-blue-600 hover:bg-blue-700' : 'bg-purple-600 hover:bg-purple-700'}`}>
+              <ExternalLink size={13} /> {isApple ? 'App Store' : 'Play Store'}
             </a>
-            <Link href={`/publisher?devId=${encodeURIComponent(detail.developerId)}&name=${encodeURIComponent(detail.developer)}`}
-              className="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs px-3 py-2 rounded-lg transition-colors">
-              <BarChart2 size={13} /> Publisher
-            </Link>
+            {!isApple && (
+              <Link href={`/publisher?devId=${encodeURIComponent(detail.developerId)}&name=${encodeURIComponent(detail.developer)}`}
+                className="flex items-center gap-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 text-xs px-3 py-2 rounded-lg transition-colors">
+                <BarChart2 size={13} /> Publisher
+              </Link>
+            )}
           </div>
         </div>
 
         {/* Quick stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 mt-4">
-          {/* Real data */}
-          <div className="bg-gray-800 rounded-xl p-3">
-            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
-              <Download size={12} /> Total Installs
+        {(() => {
+          const storeLabel = isApple ? 'App Store' : 'Google Play';
+          return (
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 mt-4">
+              <div className="bg-gray-800 rounded-xl p-3">
+                <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
+                  <Download size={12} /> Total Installs
+                </div>
+                <p className="font-semibold text-sm text-blue-400">{detail.installs || '—'}</p>
+                <p className="text-gray-600 text-[10px] mt-0.5">{storeLabel}</p>
+              </div>
+              <div className="bg-gray-800 rounded-xl p-3">
+                <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
+                  <TrendingDown size={12} /> Est. Daily Downloads
+                </div>
+                <p className="font-semibold text-sm text-purple-400">~{formatNumber(dailyDownloads)}</p>
+                <p className="text-gray-600 text-[10px] mt-0.5">Estimate</p>
+              </div>
+              <div className="bg-gray-800 rounded-xl p-3">
+                <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
+                  <Users size={12} /> Est. DAU
+                </div>
+                <p className="font-semibold text-sm text-cyan-400">~{formatNumber(dau)}</p>
+                <p className="text-gray-600 text-[10px] mt-0.5">Estimate</p>
+              </div>
+              <div className="bg-gray-800 rounded-xl p-3">
+                <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
+                  <DollarSign size={12} /> Est. Daily Revenue
+                </div>
+                <p className="font-semibold text-sm text-green-400">~${formatNumber(dailyRevenue)}</p>
+                <p className="text-gray-600 text-[10px] mt-0.5">Estimate</p>
+              </div>
+              <div className="bg-gray-800 rounded-xl p-3">
+                <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
+                  <Calendar size={12} /> Last Updated
+                </div>
+                <p className="font-semibold text-sm text-gray-300">{new Date(detail.updated * 1000).toLocaleDateString()}</p>
+                <p className="text-gray-600 text-[10px] mt-0.5">{storeLabel}</p>
+              </div>
+              <div className="bg-gray-800 rounded-xl p-3">
+                <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
+                  <Smartphone size={12} /> Version
+                </div>
+                <p className="font-semibold text-sm text-gray-300">{detail.version}</p>
+                <p className="text-gray-600 text-[10px] mt-0.5">{storeLabel}</p>
+              </div>
             </div>
-            <p className="font-semibold text-sm text-blue-400">{detail.installs}</p>
-            <p className="text-gray-600 text-[10px] mt-0.5">Google Play</p>
-          </div>
-
-          {/* Estimate */}
-          <div className="bg-gray-800 rounded-xl p-3">
-            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
-              <TrendingDown size={12} /> Est. Daily Downloads
-            </div>
-            <p className="font-semibold text-sm text-purple-400">~{formatNumber(dailyDownloads)}</p>
-            <p className="text-gray-600 text-[10px] mt-0.5">Estimate</p>
-          </div>
-
-          {/* Estimate */}
-          <div className="bg-gray-800 rounded-xl p-3">
-            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
-              <Users size={12} /> Est. DAU
-            </div>
-            <p className="font-semibold text-sm text-cyan-400">~{formatNumber(dau)}</p>
-            <p className="text-gray-600 text-[10px] mt-0.5">Estimate</p>
-          </div>
-
-          {/* Estimate */}
-          <div className="bg-gray-800 rounded-xl p-3">
-            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
-              <DollarSign size={12} /> Est. Daily Revenue
-            </div>
-            <p className="font-semibold text-sm text-green-400">~${formatNumber(dailyRevenue)}</p>
-            <p className="text-gray-600 text-[10px] mt-0.5">Estimate</p>
-          </div>
-
-          {/* Real data */}
-          <div className="bg-gray-800 rounded-xl p-3">
-            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
-              <Calendar size={12} /> Last Updated
-            </div>
-            <p className="font-semibold text-sm text-gray-300">{new Date(detail.updated * 1000).toLocaleDateString()}</p>
-            <p className="text-gray-600 text-[10px] mt-0.5">Google Play</p>
-          </div>
-
-          {/* Real data */}
-          <div className="bg-gray-800 rounded-xl p-3">
-            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1">
-              <Smartphone size={12} /> Version
-            </div>
-            <p className="font-semibold text-sm text-gray-300">{detail.version}</p>
-            <p className="text-gray-600 text-[10px] mt-0.5">Google Play</p>
-          </div>
-        </div>
+          );
+        })()}
       </div>
 
       {/* Sidebar + Content layout */}
@@ -1192,7 +1189,7 @@ function AppDetailContent() {
   const store = searchParams.get('store') || 'google';
 
   if (store === 'amazon') return <AmazonAppDetail appId={appId} />;
-  return <GoogleAppDetail appId={appId} />;
+  return <GoogleAppDetail appId={appId} store={store} />; {/* handles both google + apple */}
 }
 
 export default function AppPage() {
