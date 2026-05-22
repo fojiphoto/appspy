@@ -119,52 +119,91 @@ export async function fetchAmazonChart(
     if (!res.ok) throw new Error(`Amazon HTTP ${res.status}`);
     const html = await res.text();
 
-    // Extract ASINs from data-asin attributes
-    const asinRegex = /data-asin="(B[A-Z0-9]{9})"/g;
-    const asins = new Set<string>();
-    let match: RegExpExecArray | null;
-    while ((match = asinRegex.exec(html)) !== null) {
-      asins.add(match[1]);
+    // ── Step 1: Collect (ASIN → position-of-data-asin-attr) ─────────────────
+    // We store the MATCH INDEX so the surrounding block is anchored to the
+    // actual list-item element that owns the attribute, not some random first
+    // occurrence of the ASIN string elsewhere in the page.
+    const asinPositions = new Map<string, number>(); // asin → index in html
+
+    const asinAttrRx = /data-asin="(B[A-Z0-9]{9})"/g;
+    let m: RegExpExecArray | null;
+    while ((m = asinAttrRx.exec(html)) !== null) {
+      if (!asinPositions.has(m[1])) asinPositions.set(m[1], m.index);
     }
 
-    // Also try: <li class="zg-item-immersion" ... data-p13n-asin-metadata='{"asin":"B...
-    const asinMeta = /["\s]asin[":\s]+"(B[A-Z0-9]{9})"/g;
-    while ((match = asinMeta.exec(html)) !== null) {
-      asins.add(match[1]);
+    // Also pick up ASINs embedded in JSON metadata blobs
+    const metaRx = /["']asin["']\s*:\s*["'](B[A-Z0-9]{9})["']/g;
+    while ((m = metaRx.exec(html)) !== null) {
+      if (!asinPositions.has(m[1])) asinPositions.set(m[1], m.index);
     }
 
-    const asinList = [...asins].slice(0, num);
-    if (!asinList.length) return [];
+    if (!asinPositions.size) return [];
 
-    // Try to extract basic info directly from page HTML (faster than individual fetches)
-    // Amazon's BSR page embeds product info in JSON/structured data
-    const apps: AmazonApp[] = asinList.map((asin, i) => {
-      // Try to extract title from og:title or structured data near this ASIN
-      const asinBlock = html.substring(
-        Math.max(0, html.indexOf(asin) - 500),
-        html.indexOf(asin) + 2000,
+    // Sort by position (preserves chart order as it appears in the DOM)
+    const ordered = [...asinPositions.entries()]
+      .sort((a, b) => a[1] - b[1])
+      .slice(0, num);
+
+    // ── Step 2: Extract metadata from the block around each data-asin attr ──
+    const apps: AmazonApp[] = ordered.map(([asin, pos], i) => {
+      // Grab 200 chars before (catches opening <li …>) and 3 500 after (full item)
+      const block = html.substring(Math.max(0, pos - 200), pos + 3500);
+
+      // ── Title (4 strategies, first match wins) ───────────────────────────
+      let title = '';
+
+      // 1. <span class="…p13n-sc-truncate…">Title</span>
+      const t1 = block.match(/p13n-sc-truncate[^>]*>\s*([^<]{4,120})\s*</);
+      if (t1) title = t1[1].trim();
+
+      // 2. <div class="…zg-carousel-general-faceout…">…<span>Title</span>
+      if (!title) {
+        const t2 = block.match(/zg-carousel-general-faceout[\s\S]{0,400}?<span[^>]*>\s*([^<]{4,120})\s*<\/span>/);
+        if (t2) title = t2[1].trim();
+      }
+
+      // 3. img alt attribute (usually the app name)
+      if (!title) {
+        const t3 = block.match(/alt="([^"]{4,120})"/);
+        if (t3) title = t3[1].trim();
+      }
+
+      // 4. Link text immediately after /dp/ASIN
+      if (!title) {
+        const t4 = block.match(new RegExp(`/dp/${asin}[^"]*"[^>]*>\\s*([^<]{4,120})\\s*<`));
+        if (t4) title = t4[1].trim();
+      }
+
+      if (!title) title = asin; // last resort — never "App BXXXXXXX"
+
+      // ── Developer ────────────────────────────────────────────────────────
+      // "by AuthorName" pattern common on Amazon detail blocks
+      const devM = block.match(/by\s+<a[^>]*>([^<]+)<\/a>/);
+      const developer = devM ? devM[1].trim() : '';
+
+      // ── Icon ─────────────────────────────────────────────────────────────
+      // Prefer CDN images with size hint (._SY|._SX|._CR)
+      const imgM = block.match(
+        /src="(https:\/\/m\.media-amazon\.com\/images\/I\/[A-Za-z0-9%+._-]+\.(?:jpg|png)[^"]*)"/,
       );
+      const icon = imgM ? imgM[1] : '';
 
-      const titleM  = asinBlock.match(/alt="([^"]{5,80})"/);
-      const title   = titleM ? titleM[1].trim() : `App ${asin}`;
-
-      const ratingM = asinBlock.match(/([0-9.]+) out of 5/);
+      // ── Rating / reviews ─────────────────────────────────────────────────
+      const ratingM = block.match(/([0-9.]+) out of 5/);
       const score   = ratingM ? parseFloat(ratingM[1]) : 0;
 
-      const reviewM = asinBlock.match(/([\d,]+)\s*(?:customer\s*)?(?:rating|review)/i);
+      const reviewM = block.match(/([\d,]+)\s*(?:customer\s*)?(?:rating|review)/i);
       const reviews = reviewM ? parseInt(reviewM[1].replace(/,/g, '')) : 0;
 
-      const imgM  = asinBlock.match(/src="(https:\/\/m\.media-amazon\.com\/images\/[^"]+)"/);
-      const icon  = imgM ? imgM[1] : `https://images-na.ssl-images-amazon.com/images/I/${asin}.jpg`;
-
-      const priceM = asinBlock.match(/\$([0-9]+\.[0-9]{2})/);
+      // ── Price ────────────────────────────────────────────────────────────
+      const priceM = block.match(/\$([0-9]+\.[0-9]{2})/);
       const price  = priceM ? `$${priceM[1]}` : 'Free';
       const free   = !priceM;
 
       return {
         appId:            asin,
         title,
-        developer:        '',
+        developer,
         icon,
         score,
         reviews,
