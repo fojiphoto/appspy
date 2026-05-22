@@ -793,12 +793,210 @@ function TabAds({ developer, country = 'us' }: { developer: string; country?: st
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Amazon App Detail ────────────────────────────────────────────────────────
 
-function AppDetailContent() {
-  const searchParams = useSearchParams();
+function AmazonAppDetail({ appId }: { appId: string }) {
   const router = useRouter();
-  const appId = searchParams.get('id') || '';
+  const [detail, setDetail]   = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState('');
+  const [activeTab, setActiveTab] = useState('details');
+
+  useEffect(() => {
+    if (!appId) return;
+    setLoading(true);
+    fetch(`/api/app-detail?appId=${appId}&store=amazon`)
+      .then(r => r.json())
+      .then(d => { if (d.error) throw new Error(d.error); setDetail(d.detail); })
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [appId]);
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-24 text-gray-400 gap-2">
+      <div className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+      Fetching Amazon Appstore data…
+    </div>
+  );
+  if (error) return (
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="bg-red-900/30 border border-red-800 rounded-xl p-4 text-red-400 text-sm">Error: {error}</div>
+    </div>
+  );
+  if (!detail) return null;
+
+  // Estimate from review count (Amazon proxy: ~25 reviews per 1k downloads)
+  const estInstalls    = Math.max((detail.reviews || 0) * 25, 1000);
+  const estDailyDl     = Math.round(estInstalls / 365);
+  const estDAU         = Math.round(estInstalls * 0.08);
+  const estRevenue     = detail.free
+    ? Math.round(estDAU * 0.012)
+    : Math.round(estDailyDl * (detail.price?.replace('$', '') || 0) * 0.7);
+
+  const AMAZON_TABS = [
+    { id: 'details', label: 'Details',         icon: Info },
+    { id: 'ads',     label: 'Ad Intelligence', icon: Megaphone },
+  ];
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-6">
+      {/* Back */}
+      <button onClick={() => router.back()} className="flex items-center gap-1 text-gray-400 hover:text-white text-sm mb-4">
+        <ArrowLeft size={14} /> Back
+      </button>
+
+      {/* Header */}
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-6">
+        <div className="flex gap-4 items-start flex-wrap">
+          {detail.icon ? (
+            <img src={detail.icon} alt={detail.title}
+              className="w-20 h-20 rounded-2xl shrink-0 border border-gray-700 object-cover" />
+          ) : (
+            <div className="w-20 h-20 rounded-2xl shrink-0 border border-gray-700 bg-orange-900/30 flex items-center justify-center">
+              <span className="text-orange-400 text-2xl font-bold">{detail.title?.[0] || 'A'}</span>
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-bold text-white">{detail.title}</h1>
+              <span className="bg-orange-500/15 text-orange-400 text-xs px-2 py-0.5 rounded-full font-medium border border-orange-500/20">Amazon</span>
+            </div>
+            {detail.developer && (
+              <p className="text-orange-400 text-sm mt-0.5">{detail.developer}</p>
+            )}
+            <p className="text-gray-600 text-xs mt-0.5">{detail.appId}</p>
+            <div className="flex flex-wrap items-center gap-4 mt-3 text-sm">
+              {detail.score > 0 && (
+                <span className="flex items-center gap-1 text-yellow-400 font-semibold">
+                  <Star size={14} fill="currentColor" /> {detail.score.toFixed(1)}
+                  <span className="text-gray-500 font-normal">({formatNumber(detail.reviews)})</span>
+                </span>
+              )}
+              <span className="text-gray-400">{detail.genre || 'Apps & Games'}</span>
+              <span className={detail.free ? 'text-green-400' : 'text-orange-400'}>{detail.price || 'Free'}</span>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex flex-wrap gap-2">
+            <a href={detail.url} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-1.5 bg-orange-600 hover:bg-orange-700 text-white text-xs px-3 py-2 rounded-lg transition-colors">
+              <ExternalLink size={13} /> Amazon Store
+            </a>
+          </div>
+        </div>
+
+        {/* Quick stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 mt-4">
+          <div className="bg-gray-800 rounded-xl p-3">
+            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1"><Star size={12} /> Rating</div>
+            <p className="font-semibold text-sm text-yellow-400">{detail.score > 0 ? detail.score.toFixed(1) : '—'} / 5</p>
+            <p className="text-gray-600 text-[10px] mt-0.5">Amazon</p>
+          </div>
+          <div className="bg-gray-800 rounded-xl p-3">
+            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1"><MessageSquare size={12} /> Reviews</div>
+            <p className="font-semibold text-sm text-gray-300">{formatNumber(detail.reviews)}</p>
+            <p className="text-gray-600 text-[10px] mt-0.5">Amazon</p>
+          </div>
+          <div className="bg-gray-800 rounded-xl p-3">
+            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1"><TrendingDown size={12} /> Est. Daily Downloads</div>
+            <p className="font-semibold text-sm text-purple-400">~{formatNumber(estDailyDl)}</p>
+            <p className="text-gray-600 text-[10px] mt-0.5">Estimate</p>
+          </div>
+          <div className="bg-gray-800 rounded-xl p-3">
+            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1"><Users size={12} /> Est. DAU</div>
+            <p className="font-semibold text-sm text-cyan-400">~{formatNumber(estDAU)}</p>
+            <p className="text-gray-600 text-[10px] mt-0.5">Estimate</p>
+          </div>
+          <div className="bg-gray-800 rounded-xl p-3">
+            <div className="flex items-center gap-1.5 text-gray-500 text-xs mb-1"><DollarSign size={12} /> Est. Daily Revenue</div>
+            <p className="font-semibold text-sm text-green-400">~${formatNumber(estRevenue)}</p>
+            <p className="text-gray-600 text-[10px] mt-0.5">Estimate</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs + content */}
+      <div className="flex gap-4">
+        <aside className="w-52 shrink-0">
+          <nav className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden sticky top-4">
+            {AMAZON_TABS.map(tab => {
+              const Icon = tab.icon;
+              return (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                  className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-colors border-b border-gray-800 last:border-0
+                    ${activeTab === tab.id ? 'bg-orange-600/20 text-orange-300 font-medium' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}>
+                  <Icon size={14} /> {tab.label}
+                  {activeTab === tab.id && <ChevronRight size={12} className="ml-auto" />}
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+
+        <main className="flex-1 min-w-0 bg-gray-900 border border-gray-800 rounded-xl p-5">
+          {activeTab === 'ads' && <AdLibraryFallback developer={detail.developer || detail.title} />}
+          {activeTab === 'details' && (
+            <div className="space-y-5">
+              {/* Description */}
+              {detail.description && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-300 mb-2">Description</h3>
+                  <p className="text-gray-400 text-sm leading-relaxed whitespace-pre-line">{detail.description}</p>
+                </div>
+              )}
+
+              {/* Info table */}
+              <div>
+                <h3 className="text-sm font-semibold text-gray-300 mb-2">App Info</h3>
+                <table className="w-full text-sm">
+                  <tbody className="divide-y divide-gray-800">
+                    {[
+                      ['ASIN', detail.appId],
+                      ['Developer', detail.developer || '—'],
+                      ['Category', detail.genre || 'Apps & Games'],
+                      ['Price', detail.price || 'Free'],
+                    ].map(([k, v]) => (
+                      <tr key={k} className="text-left">
+                        <td className="py-2 pr-4 text-gray-500 w-36">{k}</td>
+                        <td className="py-2 text-gray-300">{v}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Screenshots */}
+              {detail.screenshots?.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-300 mb-2">Screenshots</h3>
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {detail.screenshots.slice(0, 6).map((ss: string, i: number) => (
+                      <a key={i} href={ss} target="_blank" rel="noopener noreferrer">
+                        <img src={ss} alt={`Screenshot ${i + 1}`}
+                          className="h-40 rounded-xl border border-gray-700 object-cover hover:opacity-80 transition-opacity shrink-0" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Estimate disclaimer */}
+              <p className="text-gray-700 text-xs border-t border-gray-800 pt-3">
+                ⓘ Estimates (daily downloads, DAU, revenue) are derived from review count — Amazon does not publish install data.
+              </p>
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+// ─── Google Play app detail ───────────────────────────────────────────────────
+
+function GoogleAppDetail({ appId }: { appId: string }) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('details');
   const [detail, setDetail] = useState<AppDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -977,6 +1175,17 @@ function AppDetailContent() {
       </div>
     </div>
   );
+}
+
+// ─── Router — reads searchParams and delegates ────────────────────────────────
+
+function AppDetailContent() {
+  const searchParams = useSearchParams();
+  const appId = searchParams.get('id') || '';
+  const store = searchParams.get('store') || 'google';
+
+  if (store === 'amazon') return <AmazonAppDetail appId={appId} />;
+  return <GoogleAppDetail appId={appId} />;
 }
 
 export default function AppPage() {

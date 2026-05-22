@@ -332,15 +332,20 @@ function ExplorerView({ store, filters, setFilters }: {
                     <td className="px-3 py-3 text-gray-500 text-sm">{i + 1}</td>
                     <td className="px-3 py-3">
                       {isAmazon ? (
-                        <a href={app.url || `https://www.amazon.com/dp/${app.appId}`} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-3 group">
-                          <img src={app.icon} alt={app.title} referrerPolicy="no-referrer"
-                            className="w-10 h-10 rounded-xl shrink-0 object-cover border border-gray-700" />
+                        <Link href={`/app?id=${app.appId}&store=amazon`} className="flex items-center gap-3 group">
+                          {app.icon ? (
+                            <img src={app.icon} alt={app.title}
+                              className="w-10 h-10 rounded-xl shrink-0 object-cover border border-gray-700" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-xl shrink-0 border border-gray-700 bg-orange-900/30 flex items-center justify-center text-orange-400 font-bold text-sm">
+                              {app.title?.[0] || 'A'}
+                            </div>
+                          )}
                           <div className="min-w-0">
                             <p className="text-white text-sm font-medium group-hover:text-orange-400 transition-colors truncate max-w-[200px]">{app.title}</p>
                             <p className="text-gray-500 text-xs truncate max-w-[200px]">{app.developer || app.appId}</p>
                           </div>
-                        </a>
+                        </Link>
                       ) : (
                         <Link href={`/app?id=${app.appId}`} className="flex items-center gap-3 group">
                           <img src={app.icon} alt={app.title} referrerPolicy="no-referrer"
@@ -387,11 +392,16 @@ function ExplorerView({ store, filters, setFilters }: {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {apps.map(app => isAmazon ? (
-            <a key={app.appId} href={app.url || `https://www.amazon.com/dp/${app.appId}`}
-              target="_blank" rel="noopener noreferrer"
+            <Link key={app.appId} href={`/app?id=${app.appId}&store=amazon`}
               className="bg-gray-900 border border-gray-800 hover:border-orange-500 rounded-xl p-3 transition-colors">
-              <img src={app.icon} alt={app.title} referrerPolicy="no-referrer"
-                className="w-full aspect-square rounded-xl object-cover mb-2 border border-gray-800" />
+              {app.icon ? (
+                <img src={app.icon} alt={app.title}
+                  className="w-full aspect-square rounded-xl object-cover mb-2 border border-gray-800" />
+              ) : (
+                <div className="w-full aspect-square rounded-xl mb-2 border border-gray-800 bg-orange-900/20 flex items-center justify-center">
+                  <span className="text-orange-400 text-2xl font-bold">{app.title?.[0] || 'A'}</span>
+                </div>
+              )}
               <p className="text-white text-xs font-semibold truncate">{app.title}</p>
               <p className="text-gray-500 text-xs truncate">{app.developer || app.appId}</p>
               <div className="flex items-center justify-between mt-1.5">
@@ -402,7 +412,7 @@ function ExplorerView({ store, filters, setFilters }: {
                 ) : <span />}
                 <span className="text-orange-400 text-xs">~{formatNumber(app.estDailyInstalls)}/d</span>
               </div>
-            </a>
+            </Link>
           ) : (
             <Link key={app.appId} href={`/app?id=${app.appId}`}
               className="bg-gray-900 border border-gray-800 hover:border-purple-600 rounded-xl p-3 transition-colors">

@@ -67,42 +67,112 @@ export interface AmazonApp {
   store:            'amazon';
 }
 
-// ── Parse individual app from Amazon product page ─────────────────────────────
-async function fetchAppDetail(asin: string): Promise<Partial<AmazonApp>> {
+// ── Full app detail from Amazon product page ─────────────────────────────────
+export interface AmazonAppDetail {
+  appId:       string;
+  title:       string;
+  developer:   string;
+  icon:        string;
+  screenshots: string[];
+  score:       number;
+  reviews:     number;
+  price:       string;
+  free:        boolean;
+  description: string;
+  genre:       string;
+  url:         string;
+  store:       'amazon';
+}
+
+export async function fetchAmazonAppDetail(asin: string): Promise<AmazonAppDetail | null> {
   try {
     const url = `https://www.amazon.com/dp/${asin}`;
     const res = await fetch(url, { headers: HEADERS, cache: 'no-store' });
-    if (!res.ok) return {};
+    if (!res.ok) return null;
     const html = await res.text();
 
-    // Title
-    const titleMatch = html.match(/<span[^>]*id="productTitle"[^>]*>\s*([\s\S]*?)\s*<\/span>/);
-    const title = titleMatch ? titleMatch[1].trim().replace(/\s+/g, ' ') : '';
+    // Title — id="productTitle"
+    const titleM = html.match(/<span[^>]*id="productTitle"[^>]*>\s*([\s\S]*?)\s*<\/span>/);
+    const title  = titleM ? titleM[1].trim().replace(/<[^>]+>/g, '').replace(/\s+/g, ' ') : asin;
 
-    // Developer
-    const devMatch = html.match(/by\s+<a[^>]*>([^<]+)<\/a>/);
-    const developer = devMatch ? devMatch[1].trim() : '';
+    // Developer — "by <a>Name</a>"
+    const devM     = html.match(/by\s+<a[^>]*>([^<]+)<\/a>/);
+    const developer = devM ? devM[1].trim() : '';
 
     // Rating
-    const ratingMatch = html.match(/([0-9.]+) out of 5 stars/);
-    const score = ratingMatch ? parseFloat(ratingMatch[1]) : 0;
+    const ratingM = html.match(/([0-9.]+) out of 5 stars/);
+    const score   = ratingM ? parseFloat(ratingM[1]) : 0;
 
-    // Reviews
-    const reviewMatch = html.match(/([\d,]+)\s+ratings/);
-    const reviews = reviewMatch ? parseInt(reviewMatch[1].replace(/,/g, '')) : 0;
+    // Review count — "X,XXX ratings"
+    const reviewM = html.match(/([\d,]+)\s+ratings/);
+    const reviews = reviewM ? parseInt(reviewM[1].replace(/,/g, '')) : 0;
 
     // Price
-    const priceMatch = html.match(/class="a-price-whole">([^<]+)</);
-    const price = priceMatch ? `$${priceMatch[1]}` : 'Free';
-    const free = !priceMatch || price === 'Free' || price === '$0';
+    const priceM  = html.match(/class="a-price-whole">([^<]+)</);
+    const price   = priceM ? `$${priceM[1].trim()}` : 'Free';
+    const free    = !priceM;
 
-    // Icon
-    const iconMatch = html.match(/id="main-image"[^>]*src="([^"]+)"/);
-    const icon = iconMatch ? iconMatch[1] : '';
+    // Icon — main product image (try several patterns)
+    let icon = '';
+    const iconM1 = html.match(/id="main-image"[^>]*src="([^"]+)"/);
+    if (iconM1) icon = iconM1[1];
+    if (!icon) {
+      const iconM2 = html.match(/id="imgBlkFront"[^>]*src="([^"]+)"/);
+      if (iconM2) icon = iconM2[1];
+    }
+    if (!icon) {
+      const iconM3 = html.match(/https:\/\/m\.media-amazon\.com\/images\/I\/[A-Za-z0-9%._-]+\._AC_[^"]+/);
+      if (iconM3) icon = iconM3[0];
+    }
 
-    return { title, developer, score, reviews, price, free, icon };
-  } catch {
-    return {};
+    // Screenshots — data-a-dynamic-image JSON blobs
+    const screenshots: string[] = [];
+    const ssRx = /data-a-dynamic-image="([^"]+)"/g;
+    let ssM: RegExpExecArray | null;
+    while ((ssM = ssRx.exec(html)) !== null) {
+      try {
+        const decoded = ssM[1].replace(/&quot;/g, '"').replace(/&#34;/g, '"');
+        const keys = Object.keys(JSON.parse(decoded));
+        for (const k of keys) {
+          if (k.startsWith('https://m.media-amazon.com')) screenshots.push(k);
+        }
+      } catch { /* skip malformed */ }
+    }
+    // Also catch regular CDN images embedded in altImages
+    const imgRx = /https:\/\/m\.media-amazon\.com\/images\/I\/[A-Za-z0-9%._-]+\._[^"'\s]+/g;
+    let imgM: RegExpExecArray | null;
+    while ((imgM = imgRx.exec(html)) !== null) {
+      screenshots.push(imgM[0]);
+    }
+
+    // Description
+    const descM = html.match(/id="productDescription"[\s\S]{0,200}?<p[^>]*>([\s\S]*?)<\/p>/);
+    const description = descM
+      ? descM[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+      : '';
+
+    // Category / Genre from breadcrumbs
+    const genreM = html.match(/\/mobile-apps\/([A-Za-z0-9_-]+)\/ref=/);
+    const genre  = genreM ? genreM[1].replace(/-/g, ' ') : 'Apps & Games';
+
+    return {
+      appId:       asin,
+      title,
+      developer,
+      icon,
+      screenshots: [...new Set(screenshots)].slice(0, 8),
+      score,
+      reviews,
+      price,
+      free,
+      description,
+      genre,
+      url:         `https://www.amazon.com/dp/${asin}`,
+      store:       'amazon' as const,
+    };
+  } catch (err: any) {
+    console.error('[fetchAmazonAppDetail]', err.message);
+    return null;
   }
 }
 
