@@ -1,24 +1,67 @@
 'use client';
 
-const CATEGORIES = [
-  { value: 'GAME', label: 'All Games' },
-  { value: 'GAME_ACTION', label: 'Action' },
-  { value: 'GAME_CASUAL', label: 'Casual' },
-  { value: 'GAME_PUZZLE', label: 'Puzzle' },
+const CATEGORIES_GOOGLE = [
+  { value: 'APPLICATION', label: 'All Apps' },
+  { value: 'GAME',        label: 'All Games' },
+  { value: 'GAME_ACTION',   label: 'Action' },
+  { value: 'GAME_CASUAL',   label: 'Casual' },
+  { value: 'GAME_PUZZLE',   label: 'Puzzle' },
   { value: 'GAME_STRATEGY', label: 'Strategy' },
-  { value: 'GAME_RACING', label: 'Racing' },
-  { value: 'GAME_SPORTS', label: 'Sports' },
+  { value: 'GAME_RACING',   label: 'Racing' },
+  { value: 'GAME_SPORTS',   label: 'Sports' },
   { value: 'COMMUNICATION', label: 'Communication' },
-  { value: 'SOCIAL', label: 'Social' },
-  { value: 'TOOLS', label: 'Tools' },
+  { value: 'SOCIAL',        label: 'Social' },
+  { value: 'TOOLS',         label: 'Tools' },
   { value: 'ENTERTAINMENT', label: 'Entertainment' },
-  { value: 'EDUCATION', label: 'Education' },
+  { value: 'EDUCATION',     label: 'Education' },
 ];
 
-const COLLECTIONS = [
-  { value: 'TOP_FREE', label: 'Top Free' },
-  { value: 'TOP_PAID', label: 'Top Paid' },
-  { value: 'GROSSING', label: 'Top Grossing' },
+const CATEGORIES_APPLE = [
+  { value: 'GAMES',              label: 'All Games' },
+  { value: 'GAMES_ACTION',       label: 'Action' },
+  { value: 'GAMES_CASUAL',       label: 'Casual' },
+  { value: 'GAMES_PUZZLE',       label: 'Puzzle' },
+  { value: 'GAMES_STRATEGY',     label: 'Strategy' },
+  { value: 'GAMES_RACING',       label: 'Racing' },
+  { value: 'GAMES_SPORTS',       label: 'Sports' },
+  { value: 'SOCIAL_NETWORKING',  label: 'Social' },
+  { value: 'UTILITIES',          label: 'Utilities' },
+  { value: 'ENTERTAINMENT',      label: 'Entertainment' },
+  { value: 'EDUCATION',          label: 'Education' },
+  { value: 'HEALTH_AND_FITNESS', label: 'Health & Fitness' },
+  { value: 'PRODUCTIVITY',       label: 'Productivity' },
+];
+
+const CATEGORIES_AMAZON = [
+  { value: 'APPLICATION',   label: 'All Apps & Games' },
+  { value: 'GAME',          label: 'All Games' },
+  { value: 'GAME_ACTION',   label: 'Action' },
+  { value: 'GAME_ARCADE',   label: 'Arcade' },
+  { value: 'GAME_CASUAL',   label: 'Casual' },
+  { value: 'GAME_PUZZLE',   label: 'Puzzle' },
+  { value: 'GAME_STRATEGY', label: 'Strategy' },
+  { value: 'EDUCATION',     label: 'Education' },
+  { value: 'KIDS',          label: 'Kids' },
+];
+
+const COLLECTIONS_GOOGLE = [
+  { value: 'TOP_FREE',     label: 'Top Free' },
+  { value: 'TOP_PAID',     label: 'Top Paid' },
+  { value: 'GROSSING',     label: 'Top Grossing' },
+  { value: 'TOP_NEW_FREE', label: '🆕 Top New Free' },
+];
+
+const COLLECTIONS_APPLE = [
+  { value: 'TOP_FREE',     label: 'Top Free' },
+  { value: 'TOP_PAID',     label: 'Top Paid' },
+  { value: 'GROSSING',     label: 'Top Grossing' },
+  { value: 'TOP_NEW_FREE', label: '🆕 Top New Free' },
+];
+
+const COLLECTIONS_AMAZON = [
+  { value: 'TOP_FREE',     label: 'Best Sellers' },
+  { value: 'TOP_PAID',     label: 'Top Paid' },
+  { value: 'TOP_NEW_FREE', label: '🆕 New Releases' },
 ];
 
 const COUNTRIES = [
@@ -31,31 +74,40 @@ const COUNTRIES = [
   { value: 'jp', label: '🇯🇵 Japan' },
   { value: 'kr', label: '🇰🇷 Korea' },
   { value: 'ru', label: '🇷🇺 Russia' },
+  { value: 'fr', label: '🇫🇷 France' },
+  { value: 'ca', label: '🇨🇦 Canada' },
+  { value: 'au', label: '🇦🇺 Australia' },
 ];
 
 interface FilterBarProps {
-  category: string;
+  category:   string;
   collection: string;
-  country: string;
-  onChange: (key: string, value: string) => void;
+  country:    string;
+  store?:     string;
+  onChange:   (key: string, value: string) => void;
 }
 
-export default function FilterBar({ category, collection, country, onChange }: FilterBarProps) {
-  const selectClass = "bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-purple-500";
+export default function FilterBar({ category, collection, country, store = 'google', onChange }: FilterBarProps) {
+  const selectClass = "bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-purple-500 cursor-pointer";
+
+  const categories  = store === 'apple' ? CATEGORIES_APPLE  : store === 'amazon' ? CATEGORIES_AMAZON  : CATEGORIES_GOOGLE;
+  const collections = store === 'apple' ? COLLECTIONS_APPLE : store === 'amazon' ? COLLECTIONS_AMAZON : COLLECTIONS_GOOGLE;
 
   return (
     <div className="flex flex-wrap gap-3 mb-6">
       <select value={category} onChange={e => onChange('category', e.target.value)} className={selectClass}>
-        {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+        {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
       </select>
 
       <select value={collection} onChange={e => onChange('collection', e.target.value)} className={selectClass}>
-        {COLLECTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+        {collections.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
       </select>
 
-      <select value={country} onChange={e => onChange('country', e.target.value)} className={selectClass}>
-        {COUNTRIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-      </select>
+      {store !== 'amazon' && (
+        <select value={country} onChange={e => onChange('country', e.target.value)} className={selectClass}>
+          {COUNTRIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+        </select>
+      )}
     </div>
   );
 }
