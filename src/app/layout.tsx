@@ -7,8 +7,8 @@ import Topbar from "@/components/Topbar";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "AppSpy — App Market Intelligence",
-  description: "Free app intelligence platform. Top charts, download estimates, revenue insights from Google Play & App Store.",
+  title: "AppSpy by Factorial Studio — App Market Intelligence",
+  description: "Free app intelligence platform by Factorial Studio Private Limited. Top charts, download estimates, revenue insights from Google Play & App Store.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

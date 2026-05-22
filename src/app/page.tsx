@@ -21,6 +21,11 @@ export default function HomePage() {
 
       {/* Hero text */}
       <div className="relative text-center max-w-2xl mx-auto">
+        {/* Company badge */}
+        <div className="inline-flex items-center gap-2 bg-purple-600/10 border border-purple-600/30 rounded-full px-4 py-1.5 mb-5">
+          <span className="w-5 h-5 bg-purple-600 rounded-md flex items-center justify-center text-white text-[10px] font-black leading-none shrink-0">FS</span>
+          <span className="text-purple-300 text-xs font-semibold tracking-wide">Factorial Studio Private Limited</span>
+        </div>
         <p className="text-gray-500 text-base mb-3 tracking-wider uppercase font-medium">
           Discover powerful
         </p>
@@ -42,16 +47,27 @@ export default function HomePage() {
         {/* Available for */}
         <div className="flex flex-col items-center gap-3 mb-12">
           <span className="text-gray-600 text-xs uppercase tracking-widest font-semibold">Available for</span>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap justify-center">
+            {/* App Store */}
             <div className="flex items-center gap-2 bg-gray-800/80 border border-gray-700/60 rounded-xl px-4 py-2.5">
               <div className="w-6 h-6 bg-[#0D96F6] rounded-md flex items-center justify-center text-white text-xs font-bold">A</div>
               <span className="text-gray-300 text-sm font-medium">App Store</span>
             </div>
+            {/* Google Play */}
             <div className="flex items-center gap-2 bg-gray-800/80 border border-gray-700/60 rounded-xl px-4 py-2.5">
               <div className="w-6 h-6 bg-[#01875F] rounded-md flex items-center justify-center">
                 <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white"><path d="M3.18 23.76c.33.18.7.24 1.06.18l11.51-11.5L12.43 9.1 3.18 23.76zm17.12-10.2c.42-.36.7-.9.7-1.56s-.28-1.2-.71-1.56l-2.33-1.35-3.26 3.26 3.26 3.26 2.34-1.35v-.7zM4.24.06C3.91 0 3.54.06 3.18.24L15.4 12.44 18.72 9.1 4.24.06zM3.18.24z"/></svg>
               </div>
               <span className="text-gray-300 text-sm font-medium">Google Play</span>
+            </div>
+            {/* Amazon Appstore */}
+            <div className="flex items-center gap-2 bg-gray-800/80 border border-gray-700/60 rounded-xl px-4 py-2.5">
+              <div className="w-6 h-6 bg-[#FF9900] rounded-md flex items-center justify-center">
+                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white">
+                  <path d="M13.958 10.09c0 1.232.029 2.256-.591 3.351-.502.891-1.301 1.438-2.186 1.438-1.214 0-1.922-.924-1.922-2.292 0-2.692 2.415-3.182 4.699-3.182v.685zm3.186 7.705c-.209.189-.512.201-.748.074-1.052-.872-1.238-1.276-1.814-2.106-1.732 1.767-2.958 2.297-5.207 2.297-2.657 0-4.726-1.64-4.726-4.921 0-2.563 1.391-4.307 3.37-5.161 1.716-.754 4.109-.891 5.942-1.1v-.41c0-.753.06-1.642-.383-2.294-.385-.579-1.124-.819-1.775-.819-1.208 0-2.282.619-2.545 1.901-.054.285-.264.567-.548.582l-3.058-.33c-.257-.058-.543-.266-.469-.66C5.924 1.502 9.074.5 11.869.5c1.43 0 3.303.38 4.432 1.461C17.73 3.24 17.627 5.417 17.627 7.77v6.674c0 2.006.832 2.89 1.617 3.97.276.389.338.854-.014 1.143-.875.731-2.432 2.088-3.286 2.85l-.8-.612z"/>
+                </svg>
+              </div>
+              <span className="text-gray-300 text-sm font-medium">Amazon Appstore</span>
             </div>
           </div>
         </div>
@@ -70,6 +86,15 @@ export default function HomePage() {
             </Link>
           ))}
         </div>
+      </div>
+
+      {/* Footer */}
+      <div className="relative mt-16 text-center">
+        <div className="inline-flex items-center gap-2 text-gray-600 text-xs">
+          <span className="w-5 h-5 bg-purple-600/40 rounded-md flex items-center justify-center text-purple-300 text-[10px] font-black leading-none shrink-0">FS</span>
+          <span>© {new Date().getFullYear()} Factorial Studio Private Limited. All rights reserved.</span>
+        </div>
+        <p className="text-gray-700 text-[11px] mt-1">AppSpy — App Market Intelligence Platform</p>
       </div>
     </div>
   );

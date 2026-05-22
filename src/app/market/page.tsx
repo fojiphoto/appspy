@@ -194,7 +194,7 @@ function ExplorerView({ store, filters, setFilters }: {
     const csv = [hdrs, ...rows].map(r => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
-    Object.assign(document.createElement('a'), { href: url, download: `appspy-market-${store}-${Date.now()}.csv` }).click();
+    Object.assign(document.createElement('a'), { href: url, download: `factorial-studio-appspy-market-${store}-${Date.now()}.csv` }).click();
     URL.revokeObjectURL(url);
   }
 

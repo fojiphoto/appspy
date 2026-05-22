@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   Home, Globe, Package, Bookmark, TrendingUp, Flame,
   GitCompareArrows, Search, MapPin, Megaphone, Wrench,
-  Bell, BarChart2, Zap, ChevronRight,
+  Bell, BarChart2, ChevronRight,
 } from 'lucide-react';
 
 // Google Play icon
@@ -80,10 +80,11 @@ export default function Sidebar() {
     <>
       <aside className="w-[72px] shrink-0 bg-[#111318] border-r border-gray-800/60 flex flex-col h-screen sticky top-0 z-50">
         {/* Logo */}
-        <div className="flex flex-col items-center justify-center h-16 border-b border-gray-800/60 shrink-0">
+        <div className="flex flex-col items-center justify-center h-16 border-b border-gray-800/60 shrink-0 gap-0.5">
           <div className="w-9 h-9 bg-purple-600 rounded-xl flex items-center justify-center">
-            <Zap size={18} className="text-white" fill="white" />
+            <span className="text-white text-sm font-black tracking-tight leading-none">FS</span>
           </div>
+          <span className="text-[8px] font-semibold text-purple-400 tracking-widest uppercase leading-none">AppSpy</span>
         </div>
 
         {/* Nav */}
