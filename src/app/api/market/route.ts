@@ -31,6 +31,7 @@ import {
   DFS_COLLECTION_MAP,
   DFS_ONLY_COLLECTIONS,
 } from '@/lib/dataforseo';
+import { fetchAmazonChart } from '@/lib/amazon';
 
 function ageText(dateStr: string): string {
   const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
@@ -96,6 +97,12 @@ export async function GET(req: NextRequest) {
 
   try {
     let enriched: any[] = [];
+
+    /* ── Amazon Appstore ─────────────────────────────────────────────── */
+    if (store === 'amazon') {
+      const apps = await fetchAmazonChart(collection, category, num);
+      return NextResponse.json({ apps: sortApps(apps, sortBy, sortOrder) });
+    }
 
     /* ── Apple App Store ─────────────────────────────────────────────── */
     if (store === 'apple') {

@@ -28,10 +28,22 @@ function AppleStoreIcon({ size = 16 }: { size?: number }) {
   );
 }
 
+// --- Amazon icon ---
+function AmazonIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24">
+      <path fill="#FF9900" d="M13.958 10.09c0 1.232.029 2.256-.592 3.351-.502.891-1.301 1.438-2.186 1.438-1.214 0-1.922-.924-1.922-2.292 0-2.692 2.415-3.182 4.7-3.182v.685zm3.186 7.705c-.209.189-.512.201-.745.074-1.052-.872-1.238-1.276-1.814-2.106-1.734 1.767-2.962 2.297-5.209 2.297-2.66 0-4.731-1.641-4.731-4.925 0-2.565 1.391-4.309 3.37-5.164 1.715-.754 4.11-.891 5.942-1.095v-.41c0-.753.06-1.642-.384-2.294-.384-.578-1.129-.816-1.784-.816-1.212 0-2.29.623-2.555 1.913-.054.285-.261.567-.549.58l-3.061-.329c-.259-.056-.548-.266-.472-.66C5.936 1.567 8.995 0 11.979 0c1.523 0 3.513.405 4.714 1.557 1.523 1.422 1.378 3.318 1.378 5.381v4.877c0 1.468.609 2.111 1.18 2.905.202.283.245.622-.01.831-.639.533-1.773 1.524-2.397 2.08l-.009-.006"/>
+      <path fill="#FF9900" d="M20.945 18.457c-2.557 1.858-6.267 2.846-9.461 2.846-4.479 0-8.509-1.655-11.558-4.406-.24-.216-.025-.512.264-.344 3.291 1.915 7.361 3.067 11.566 3.067 2.836 0 5.953-.587 8.825-1.806.433-.188.795.284.364.643"/>
+      <path fill="#FF9900" d="M21.976 17.268c-.328-.421-2.173-.199-3.004-.101-.252.031-.291-.189-.063-.346 1.471-1.034 3.882-.736 4.162-.389.28.349-.073 2.763-1.456 3.916-.212.178-.414.083-.32-.151.311-.774 1.009-2.508.681-2.929"/>
+    </svg>
+  );
+}
+
 // --- Constants ---
 const STORE_STATS = {
   google: { totalApps: '5.62m', removed: '2.9m', developers: '1.81m', totalInstalls: '1.78t', dailyInstalls: '1.38b', from: '22 Oct 2008' },
   apple:  { totalApps: '1.96m', removed: '1.4m',  developers: '0.82m', totalInstalls: '0.84t', dailyInstalls: '0.62b', from: '10 Jul 2008' },
+  amazon: { totalApps: '0.48m', removed: '—', developers: '0.2m', totalInstalls: '—', dailyInstalls: '—', from: '22 Mar 2011' },
 };
 
 const CATEGORIES = [
@@ -62,6 +74,13 @@ const APPLE_COLLECTIONS = [
   { value: 'GROSSING',  label: 'Top Grossing' },
   { value: 'NEW_FREE',  label: '🆕 New Free Apps' },
   { value: 'NEW_PAID',  label: '🆕 New Paid Apps' },
+];
+
+const AMAZON_COLLECTIONS = [
+  { value: 'TOP_FREE',     label: 'Top Free' },
+  { value: 'TOP_PAID',     label: 'Top Paid' },
+  { value: 'TOP_GROSSING', label: 'Top Grossing' },
+  { value: 'NEW_RELEASES', label: '🆕 New Releases' },
 ];
 
 const COUNTRIES = [
@@ -126,12 +145,13 @@ function ExplorerView({ store, filters, setFilters }: {
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState('installs');
   const [sortOrder, setSortOrder] = useState('desc');
-  const isApple = store === 'apple';
+  const isApple  = store === 'apple';
+  const isAmazon = store === 'amazon';
   const SORT_OPTIONS  = isApple ? SORT_OPTIONS_APPLE : SORT_OPTIONS_GOOGLE;
-  const COLLECTIONS   = isApple ? APPLE_COLLECTIONS  : GOOGLE_COLLECTIONS;
-  // Google has real dates for DataForSEO collections (TOP_NEW_FREE etc); Apple always has dates
+  const COLLECTIONS   = isApple ? APPLE_COLLECTIONS : isAmazon ? AMAZON_COLLECTIONS : GOOGLE_COLLECTIONS;
+  // Google has real dates for DataForSEO collections (TOP_NEW_FREE etc); Apple always has dates; Amazon never
   const DFS_COLS      = new Set(['TOP_NEW_FREE', 'TOP_NEW_PAID', 'MOVERS_SHAKERS']);
-  const hasRealDates  = isApple || DFS_COLS.has(filters.collection);
+  const hasRealDates  = isApple || (!isAmazon && DFS_COLS.has(filters.collection));
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
 
@@ -256,7 +276,17 @@ function ExplorerView({ store, filters, setFilters }: {
       )}
 
       {/* Info notices */}
-      {!hasRealDates && !loading && apps.length > 0 && (
+      {isAmazon && !loading && apps.length > 0 && (
+        <div className="flex items-start gap-2.5 bg-orange-500/8 border border-orange-500/20 text-orange-400/80 text-xs rounded-lg px-4 py-2.5 mb-4">
+          <span className="text-orange-500 text-base leading-none mt-0.5">ℹ</span>
+          <span>
+            <strong className="text-orange-400">Amazon Appstore data is scraped from Amazon's public chart pages.</strong>{' '}
+            Install counts and release dates are not available. Est. Daily figures are based on chart rank position.
+            Click any app to view its full Amazon listing.
+          </span>
+        </div>
+      )}
+      {!hasRealDates && !isAmazon && !loading && apps.length > 0 && (
         <div className="flex items-start gap-2.5 bg-amber-500/8 border border-amber-500/20 text-amber-400/80 text-xs rounded-lg px-4 py-2.5 mb-4">
           <span className="text-amber-500 text-base leading-none mt-0.5">ℹ</span>
           <span>
@@ -275,7 +305,8 @@ function ExplorerView({ store, filters, setFilters }: {
 
       {loading ? (
         <div className="flex items-center justify-center py-24 gap-2 text-gray-400">
-          <Loader2 className="animate-spin" size={18} /> Fetching apps…
+          <Loader2 className="animate-spin" size={18} />
+          {isAmazon ? 'Fetching Amazon Appstore chart…' : isApple ? 'Fetching App Store chart…' : 'Fetching Google Play chart…'}
         </div>
       ) : viewMode === 'list' ? (
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
@@ -300,14 +331,26 @@ function ExplorerView({ store, filters, setFilters }: {
                   <tr key={app.appId} className="hover:bg-gray-800/40 transition-colors">
                     <td className="px-3 py-3 text-gray-500 text-sm">{i + 1}</td>
                     <td className="px-3 py-3">
-                      <Link href={`/app?id=${app.appId}`} className="flex items-center gap-3 group">
-                        <img src={app.icon} alt={app.title} referrerPolicy="no-referrer"
-                          className="w-10 h-10 rounded-xl shrink-0 object-cover border border-gray-700" />
-                        <div className="min-w-0">
-                          <p className="text-white text-sm font-medium group-hover:text-purple-400 transition-colors truncate max-w-[200px]">{app.title}</p>
-                          <p className="text-gray-500 text-xs truncate max-w-[200px]">{app.developer}</p>
-                        </div>
-                      </Link>
+                      {isAmazon ? (
+                        <a href={app.url || `https://www.amazon.com/dp/${app.appId}`} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-3 group">
+                          <img src={app.icon} alt={app.title} referrerPolicy="no-referrer"
+                            className="w-10 h-10 rounded-xl shrink-0 object-cover border border-gray-700" />
+                          <div className="min-w-0">
+                            <p className="text-white text-sm font-medium group-hover:text-orange-400 transition-colors truncate max-w-[200px]">{app.title}</p>
+                            <p className="text-gray-500 text-xs truncate max-w-[200px]">{app.developer || app.appId}</p>
+                          </div>
+                        </a>
+                      ) : (
+                        <Link href={`/app?id=${app.appId}`} className="flex items-center gap-3 group">
+                          <img src={app.icon} alt={app.title} referrerPolicy="no-referrer"
+                            className="w-10 h-10 rounded-xl shrink-0 object-cover border border-gray-700" />
+                          <div className="min-w-0">
+                            <p className="text-white text-sm font-medium group-hover:text-purple-400 transition-colors truncate max-w-[200px]">{app.title}</p>
+                            <p className="text-gray-500 text-xs truncate max-w-[200px]">{app.developer}</p>
+                          </div>
+                        </Link>
+                      )}
                     </td>
                     {hasRealDates && (
                       <td className="px-3 py-3 text-gray-400 text-sm whitespace-nowrap">
@@ -343,7 +386,24 @@ function ExplorerView({ store, filters, setFilters }: {
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {apps.map(app => (
+          {apps.map(app => isAmazon ? (
+            <a key={app.appId} href={app.url || `https://www.amazon.com/dp/${app.appId}`}
+              target="_blank" rel="noopener noreferrer"
+              className="bg-gray-900 border border-gray-800 hover:border-orange-500 rounded-xl p-3 transition-colors">
+              <img src={app.icon} alt={app.title} referrerPolicy="no-referrer"
+                className="w-full aspect-square rounded-xl object-cover mb-2 border border-gray-800" />
+              <p className="text-white text-xs font-semibold truncate">{app.title}</p>
+              <p className="text-gray-500 text-xs truncate">{app.developer || app.appId}</p>
+              <div className="flex items-center justify-between mt-1.5">
+                {app.score ? (
+                  <span className="flex items-center gap-0.5 text-yellow-400 text-xs">
+                    <Star size={9} fill="currentColor" /> {app.score.toFixed(1)}
+                  </span>
+                ) : <span />}
+                <span className="text-orange-400 text-xs">~{formatNumber(app.estDailyInstalls)}/d</span>
+              </div>
+            </a>
+          ) : (
             <Link key={app.appId} href={`/app?id=${app.appId}`}
               className="bg-gray-900 border border-gray-800 hover:border-purple-600 rounded-xl p-3 transition-colors">
               <img src={app.icon} alt={app.title} referrerPolicy="no-referrer"
@@ -400,7 +460,7 @@ function SearchView({ store, country }: { store: string; country: string }) {
 
       {loading && (
         <div className="flex items-center justify-center py-16 gap-2 text-gray-400">
-          <Loader2 className="animate-spin" size={16} /> Searching {store === 'google' ? 'Google Play' : 'App Store'}…
+          <Loader2 className="animate-spin" size={16} /> Searching {store === 'google' ? 'Google Play' : store === 'amazon' ? 'Amazon Appstore' : 'App Store'}…
         </div>
       )}
 
@@ -460,7 +520,7 @@ function SearchView({ store, country }: { store: string; country: string }) {
       {!searched && (
         <div className="text-center py-20 text-gray-600">
           <Search size={40} className="mx-auto mb-3 opacity-20" />
-          <p className="text-sm">Search any app on {store === 'google' ? 'Google Play' : 'App Store'} in real time</p>
+          <p className="text-sm">Search any app on {store === 'google' ? 'Google Play' : store === 'amazon' ? 'Amazon Appstore' : 'App Store'} in real time</p>
         </div>
       )}
     </>
@@ -471,7 +531,7 @@ function SearchView({ store, country }: { store: string; country: string }) {
 function MarketContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const store = (searchParams.get('store') || 'google') as 'google' | 'apple';
+  const store = (searchParams.get('store') || 'google') as 'google' | 'apple' | 'amazon';
   const view = (searchParams.get('view') || 'explorer') as 'explorer' | 'search';
   const [filters, setFilters] = useState({ category: 'APPLICATION', collection: 'TOP_FREE', country: 'us', num: 100 });
 
@@ -497,6 +557,9 @@ function MarketContent() {
             </button>
             <button onClick={() => nav('apple')} className={`${storeBtnBase} ${store === 'apple' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'text-gray-500 hover:text-gray-300'}`}>
               <AppleStoreIcon size={15} /> App Store
+            </button>
+            <button onClick={() => nav('amazon')} className={`${storeBtnBase} ${store === 'amazon' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'text-gray-500 hover:text-gray-300'}`}>
+              <AmazonIcon size={15} /> Amazon
             </button>
           </div>
 
