@@ -3,28 +3,28 @@
  *
  * Docs: https://docs.dataforseo.com/v3/app_data/google/
  *
- * Endpoints used:
- *   POST /v3/app_data/google/app_list/live   — chart listings
- *   POST /v3/app_data/google/app_info/live   — per-app details (released_date)
+ * Pattern (async task):
+ *   POST /{endpoint}/task_post        — submit (returns task IDs)
+ *   GET  /{endpoint}/tasks_ready      — poll until tasks appear
+ *   GET  task.endpoint_advanced       — fetch results (URL from tasks_ready)
  *
- * Auth: HTTP Basic — base64(login:password)
  * Cost:
- *   app_list  → $0.0012 per 100 results (~$0.0000120 per app)
- *   app_info  → $0.0006 per result      (~$0.0006 per app)
+ *   app_list  → $0.0012 per 100 results
+ *   app_info  → $0.0006 per app (one task per app)
  */
 
 const BASE = 'https://api.dataforseo.com/v3';
 
-/** Returns true if credentials are configured */
 export function hasDFSCredentials(): boolean {
   return !!(process.env.DATAFORSEO_LOGIN && process.env.DATAFORSEO_PASSWORD);
 }
 
 function authHeader(): string {
-  const login    = process.env.DATAFORSEO_LOGIN    || '';
-  const password = process.env.DATAFORSEO_PASSWORD || '';
-  return 'Basic ' + Buffer.from(`${login}:${password}`).toString('base64');
+  const l = process.env.DATAFORSEO_LOGIN    || '';
+  const p = process.env.DATAFORSEO_PASSWORD || '';
+  return 'Basic ' + Buffer.from(`${l}:${p}`).toString('base64');
 }
+const H = () => ({ 'Authorization': authHeader(), 'Content-Type': 'application/json' });
 
 // ── Country: ISO → DataForSEO location_code ──────────────────────────────────
 export const LOCATION_CODES: Record<string, number> = {
@@ -33,7 +33,7 @@ export const LOCATION_CODES: Record<string, number> = {
   ca: 2124, kr: 2410, ru: 2643, id: 2360,
 };
 
-// ── Our collection key → DataForSEO app_collection value ─────────────────────
+// ── Collection key → DataForSEO app_collection value ─────────────────────────
 export const DFS_COLLECTION_MAP: Record<string, string> = {
   TOP_FREE:        'topselling_free',
   TOP_PAID:        'topselling_paid',
@@ -43,10 +43,77 @@ export const DFS_COLLECTION_MAP: Record<string, string> = {
   MOVERS_SHAKERS:  'movers_shakers',
 };
 
-// Collections that DataForSEO handles (not google-play-scraper)
+// Collections only available via DataForSEO (not google-play-scraper)
 export const DFS_ONLY_COLLECTIONS = new Set([
   'TOP_NEW_FREE', 'TOP_NEW_PAID', 'MOVERS_SHAKERS',
 ]);
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+// ── Core: submit → poll → fetch ───────────────────────────────────────────────
+/**
+ * Submit tasks, wait for ALL (or at least minReady) to complete, return items.
+ * Uses endpoint_advanced from tasks_ready to fetch results.
+ */
+async function runTasks(
+  endpoint:   string,    // e.g. 'app_data/google/app_list'
+  payload:    object[],  // array of task bodies
+  minReady:   number = 1,
+  pollMs:     number = 2500,
+  maxWaitMs:  number = 30000,
+): Promise<any[]> {
+
+  /* 1 — Submit */
+  const postRes = await fetch(`${BASE}/${endpoint}/task_post`, {
+    method: 'POST', headers: H(), body: JSON.stringify(payload), cache: 'no-store',
+  });
+  if (!postRes.ok) throw new Error(`DFS task_post HTTP ${postRes.status}`);
+  const postData = await postRes.json();
+  if (postData.status_code !== 20000)
+    throw new Error(`DFS task_post error ${postData.status_code}: ${postData.status_message}`);
+
+  const submittedIds = new Set<string>(
+    (postData.tasks || []).map((t: any) => t.id).filter(Boolean)
+  );
+  if (!submittedIds.size) throw new Error('DFS: no task IDs returned from task_post');
+
+  /* 2 — Poll tasks_ready */
+  const deadline   = Date.now() + maxWaitMs;
+  const readyTasks: any[] = [];
+
+  while (Date.now() < deadline) {
+    await sleep(pollMs);
+    const r = await fetch(`${BASE}/${endpoint}/tasks_ready`, { headers: H(), cache: 'no-store' });
+    if (!r.ok) continue;
+    const d = await r.json();
+    const batch: any[] = d.tasks?.[0]?.result || [];
+
+    for (const t of batch) {
+      if (submittedIds.has(t.id) && !readyTasks.find(r => r.id === t.id)) {
+        readyTasks.push(t);
+      }
+    }
+    if (readyTasks.length >= minReady) break;
+  }
+
+  if (!readyTasks.length) throw new Error(`DFS: timeout waiting for tasks (${maxWaitMs}ms)`);
+
+  /* 3 — Fetch results via endpoint_advanced */
+  const allItems: any[] = [];
+  for (const task of readyTasks) {
+    const url = task.endpoint_advanced
+      ? `https://api.dataforseo.com${task.endpoint_advanced}`
+      : `${BASE}/${endpoint}/task_get/advanced/${task.id}`;
+    const r = await fetch(url, { headers: H(), cache: 'no-store' });
+    if (!r.ok) continue;
+    const d = await r.json();
+    // app_list: result[0].items = all apps
+    // app_info: result[0].items[0] = single app
+    const items = d.tasks?.[0]?.result?.[0]?.items ?? [];
+    allItems.push(...items);
+  }
+  return allItems;
+}
 
 // ── app_list ──────────────────────────────────────────────────────────────────
 export interface DFSListItem {
@@ -65,95 +132,58 @@ export interface DFSListItem {
 }
 
 export async function dfsAppList(opts: {
-  collection: string;   // DFS app_collection value e.g. 'topselling_new_free'
-  category?: string;    // e.g. 'GAME', 'SOCIAL' — omit for all categories
-  country: string;      // ISO 2-letter
-  num: number;
+  collection: string;
+  category?:  string;
+  country:    string;
+  num:        number;
 }): Promise<DFSListItem[]> {
-  const locationCode = LOCATION_CODES[opts.country] ?? 2840;
-  const depth = Math.min(Math.ceil(opts.num / 100) * 100, 200); // round up to 100 or 200
-
-  const body: Record<string, unknown> = {
+  const depth = Math.min(Math.ceil(opts.num / 100) * 100, 200);
+  const payload: Record<string, unknown> = {
     app_collection: opts.collection,
-    location_code:  locationCode,
+    location_code:  LOCATION_CODES[opts.country] ?? 2840,
     language_code:  'en',
     depth,
   };
   if (opts.category && opts.category !== 'APPLICATION') {
-    body.app_category = opts.category;
+    payload.app_category = opts.category;
   }
-
-  const res = await fetch(`${BASE}/app_data/google/app_list/live`, {
-    method:  'POST',
-    headers: { 'Authorization': authHeader(), 'Content-Type': 'application/json' },
-    body:    JSON.stringify([body]),
-    cache:   'no-store',
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`DFS app_list ${res.status}: ${text.slice(0, 200)}`);
-  }
-
-  const data = await res.json();
-  const statusCode = data?.tasks?.[0]?.status_code;
-  if (statusCode && statusCode !== 20000) {
-    throw new Error(`DFS app_list task error ${statusCode}: ${data?.tasks?.[0]?.status_message}`);
-  }
-
-  return (data?.tasks?.[0]?.result?.[0]?.items ?? []) as DFSListItem[];
+  // app_list = single task → wait for 1
+  return runTasks('app_data/google/app_list', [payload], 1) as Promise<DFSListItem[]>;
 }
 
 // ── app_info ──────────────────────────────────────────────────────────────────
 export interface DFSAppInfo {
   app_id:           string;
   title:            string;
-  released_date:    string | null;   // e.g. "2024-03-15 00:00:00 +00:00"
+  released_date:    string | null;   // "2026-05-07 03:00:00 +00:00"
   last_update_date: string | null;
-  installs:         string | null;
+  installs:         string | null;   // "50,000+"
   rating:           { value: number; votes_count: number } | null;
-  developer:        { name: string; id: string } | null;
 }
 
 /**
- * Batch fetch app details for up to 50 apps.
- * Returns a map of appId → DFSAppInfo.
- * Apps that fail to load are silently omitted from the map.
+ * Batch fetch release dates for up to 20 apps.
+ * Returns { appId: DFSAppInfo } map. Non-fatal on error.
  */
 export async function dfsAppInfo(
-  appIds: string[],
-  country: string
+  appIds:  string[],
+  country: string,
 ): Promise<Record<string, DFSAppInfo>> {
-  if (appIds.length === 0) return {};
-  const locationCode = LOCATION_CODES[country] ?? 2840;
+  if (!appIds.length) return {};
+  const loc     = LOCATION_CODES[country] ?? 2840;
+  const ids     = appIds.slice(0, 20);
+  const payload = ids.map(id => ({ app_id: id, location_code: loc, language_code: 'en' }));
 
-  // DataForSEO live endpoint accepts up to 100 items per POST
-  const body = appIds.slice(0, 50).map(id => ({
-    app_id:        id,
-    location_code: locationCode,
-    language_code: 'en',
-  }));
-
-  const res = await fetch(`${BASE}/app_data/google/app_info/live`, {
-    method:  'POST',
-    headers: { 'Authorization': authHeader(), 'Content-Type': 'application/json' },
-    body:    JSON.stringify(body),
-    cache:   'no-store',
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`DFS app_info ${res.status}: ${text.slice(0, 200)}`);
+  try {
+    // app_info = one task per app → wait for at least half to complete
+    const minReady = Math.max(1, Math.floor(ids.length / 2));
+    const items    = await runTasks('app_data/google/app_info', payload, minReady, 2500, 25000);
+    const map: Record<string, DFSAppInfo> = {};
+    for (const item of items) {
+      if (item?.app_id) map[item.app_id] = item as DFSAppInfo;
+    }
+    return map;
+  } catch {
+    return {}; // Non-fatal — caller shows apps without dates
   }
-
-  const data = await res.json();
-
-  // One task per app — collect successful results
-  const map: Record<string, DFSAppInfo> = {};
-  for (const task of data?.tasks ?? []) {
-    if (task?.status_code !== 20000) continue;
-    const item = task?.result?.[0]?.items?.[0];
-    if (item?.app_id) map[item.app_id] = item as DFSAppInfo;
-  }
-  return map;
 }
