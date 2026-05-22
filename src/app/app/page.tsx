@@ -793,6 +793,13 @@ function TabAds({ developer, country = 'us' }: { developer: string; country?: st
   );
 }
 
+// ─── Amazon image proxy helper ───────────────────────────────────────────────
+// Amazon's CDN blocks cross-origin img requests; route through our proxy.
+function amzImg(url: string): string {
+  if (!url) return '';
+  return `/api/amazon-image?url=${encodeURIComponent(url)}`;
+}
+
 // ─── Amazon App Detail ────────────────────────────────────────────────────────
 
 function AmazonAppDetail({ appId }: { appId: string }) {
@@ -849,7 +856,7 @@ function AmazonAppDetail({ appId }: { appId: string }) {
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-6">
         <div className="flex gap-4 items-start flex-wrap">
           {detail.icon ? (
-            <img src={detail.icon} alt={detail.title}
+            <img src={amzImg(detail.icon)} alt={detail.title}
               className="w-20 h-20 rounded-2xl shrink-0 border border-gray-700 object-cover" />
           ) : (
             <div className="w-20 h-20 rounded-2xl shrink-0 border border-gray-700 bg-orange-900/30 flex items-center justify-center">
@@ -973,7 +980,7 @@ function AmazonAppDetail({ appId }: { appId: string }) {
                   <div className="flex gap-2 overflow-x-auto pb-2">
                     {detail.screenshots.slice(0, 6).map((ss: string, i: number) => (
                       <a key={i} href={ss} target="_blank" rel="noopener noreferrer">
-                        <img src={ss} alt={`Screenshot ${i + 1}`}
+                        <img src={amzImg(ss)} alt={`Screenshot ${i + 1}`}
                           className="h-40 rounded-xl border border-gray-700 object-cover hover:opacity-80 transition-opacity shrink-0" />
                       </a>
                     ))}

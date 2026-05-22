@@ -8,6 +8,12 @@ import {
 } from 'lucide-react';
 import { formatNumber, estimateDailyDownloads } from '@/lib/estimates';
 
+// Proxy Amazon CDN images to bypass hotlink protection
+function amzImg(url: string): string {
+  if (!url) return '';
+  return `/api/amazon-image?url=${encodeURIComponent(url)}`;
+}
+
 // --- Store icons ---
 function GooglePlayIcon({ size = 16 }: { size?: number }) {
   return (
@@ -334,7 +340,7 @@ function ExplorerView({ store, filters, setFilters }: {
                       {isAmazon ? (
                         <Link href={`/app?id=${app.appId}&store=amazon`} className="flex items-center gap-3 group">
                           {app.icon ? (
-                            <img src={app.icon} alt={app.title}
+                            <img src={amzImg(app.icon)} alt={app.title}
                               className="w-10 h-10 rounded-xl shrink-0 object-cover border border-gray-700" />
                           ) : (
                             <div className="w-10 h-10 rounded-xl shrink-0 border border-gray-700 bg-orange-900/30 flex items-center justify-center text-orange-400 font-bold text-sm">
@@ -395,7 +401,7 @@ function ExplorerView({ store, filters, setFilters }: {
             <Link key={app.appId} href={`/app?id=${app.appId}&store=amazon`}
               className="bg-gray-900 border border-gray-800 hover:border-orange-500 rounded-xl p-3 transition-colors">
               {app.icon ? (
-                <img src={app.icon} alt={app.title}
+                <img src={amzImg(app.icon)} alt={app.title}
                   className="w-full aspect-square rounded-xl object-cover mb-2 border border-gray-800" />
               ) : (
                 <div className="w-full aspect-square rounded-xl mb-2 border border-gray-800 bg-orange-900/20 flex items-center justify-center">
