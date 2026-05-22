@@ -17,7 +17,7 @@ import {
   Star, Download, DollarSign, Calendar, ExternalLink, ArrowLeft,
   Shield, Smartphone, Globe, Package, Info, TrendingUp, BarChart2,
   MessageSquare, Clock, Layers, Lock, MapPin, Zap, ChevronRight,
-  Users, TrendingDown,
+  Users, TrendingDown, Megaphone, Play, Image as ImageIcon, ExternalLink as LinkIcon,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -50,6 +50,7 @@ const TABS = [
   { id: 'reviews',     label: 'Reviews Feed',       icon: MessageSquare },
   { id: 'timeline',    label: 'Timeline',           icon: Clock },
   { id: 'monetization',label: 'Monetization',       icon: DollarSign },
+  { id: 'ads',         label: 'Ad Intelligence',    icon: Megaphone },
   { id: 'datasafety',  label: 'Data Safety',        icon: Shield },
   { id: 'permissions', label: 'Permissions',        icon: Lock },
   { id: 'sdks',        label: 'SDKs',               icon: Package },
@@ -544,6 +545,207 @@ function TabRecommended({ appId }: { appId: string }) {
   );
 }
 
+// ─── Tab: Ad Intelligence ─────────────────────────────────────────────────────
+
+const PLATFORM_LABELS: Record<string, { label: string; color: string }> = {
+  facebook:         { label: 'Facebook',  color: 'bg-blue-600' },
+  instagram:        { label: 'Instagram', color: 'bg-pink-600' },
+  messenger:        { label: 'Messenger', color: 'bg-blue-500' },
+  audience_network: { label: 'Audience Network', color: 'bg-purple-600' },
+};
+
+function AdCard({ ad }: { ad: any }) {
+  const fmtDate = (d: string | null) =>
+    d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null;
+
+  const impressionLabel = ad.impressions
+    ? `${Number(ad.impressions.lower_bound).toLocaleString()}–${Number(ad.impressions.upper_bound).toLocaleString()}`
+    : null;
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-3 hover:border-purple-700 transition-colors">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {ad.platforms.map((p: string) => {
+            const pl = PLATFORM_LABELS[p];
+            return pl ? (
+              <span key={p} className={`${pl.color} text-white text-[10px] px-2 py-0.5 rounded-full font-medium`}>
+                {pl.label}
+              </span>
+            ) : null;
+          })}
+          {ad.mediaType === 'VIDEO' && (
+            <span className="flex items-center gap-1 bg-orange-600/20 border border-orange-600/30 text-orange-400 text-[10px] px-2 py-0.5 rounded-full">
+              <Play size={8} fill="currentColor" /> Video
+            </span>
+          )}
+          {ad.mediaType === 'IMAGE' && (
+            <span className="flex items-center gap-1 bg-cyan-600/20 border border-cyan-600/30 text-cyan-400 text-[10px] px-2 py-0.5 rounded-full">
+              <ImageIcon size={8} /> Image
+            </span>
+          )}
+        </div>
+        {ad.isActive ? (
+          <span className="shrink-0 flex items-center gap-1 text-green-400 text-[10px] font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse inline-block" />
+            Active
+          </span>
+        ) : (
+          <span className="shrink-0 text-gray-600 text-[10px]">Inactive</span>
+        )}
+      </div>
+
+      {/* Ad copy */}
+      {ad.headline && (
+        <p className="text-white text-sm font-semibold leading-snug line-clamp-2">{ad.headline}</p>
+      )}
+      {ad.bodyText && (
+        <p className="text-gray-400 text-xs leading-relaxed line-clamp-3">{ad.bodyText}</p>
+      )}
+      {ad.description && !ad.bodyText && (
+        <p className="text-gray-400 text-xs leading-relaxed line-clamp-3">{ad.description}</p>
+      )}
+      {!ad.headline && !ad.bodyText && !ad.description && (
+        <p className="text-gray-600 text-xs italic">No ad copy available</p>
+      )}
+
+      {/* Meta info */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-gray-500 border-t border-gray-800 pt-2">
+        {ad.startDate && (
+          <span>Started: <span className="text-gray-400">{fmtDate(ad.startDate)}</span></span>
+        )}
+        {ad.stopDate && (
+          <span>Ended: <span className="text-gray-400">{fmtDate(ad.stopDate)}</span></span>
+        )}
+        {impressionLabel && (
+          <span>Impressions: <span className="text-gray-400">{impressionLabel}</span></span>
+        )}
+        {ad.languages?.length > 0 && (
+          <span>Lang: <span className="text-gray-400">{ad.languages.join(', ').toUpperCase()}</span></span>
+        )}
+      </div>
+
+      {/* View button */}
+      {ad.snapshotUrl && (
+        <a href={ad.snapshotUrl} target="_blank" rel="noopener noreferrer"
+          className="flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white text-xs px-3 py-2 rounded-lg transition-colors mt-auto">
+          <LinkIcon size={11} /> View Creative
+        </a>
+      )}
+    </div>
+  );
+}
+
+function TabAds({ developer, country = 'us' }: { developer: string; country?: string }) {
+  const [ads, setAds]         = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [source, setSource]   = useState('');
+  const [error, setError]     = useState('');
+  const [filter, setFilter]   = useState<'all' | 'active' | 'inactive'>('all');
+  const [platform, setPlatform] = useState<'all' | 'facebook' | 'instagram'>('all');
+
+  useEffect(() => {
+    if (!developer) return;
+    setLoading(true);
+    fetch(`/api/ads?developer=${encodeURIComponent(developer)}&country=${country}&limit=30`)
+      .then(r => r.json())
+      .then(d => {
+        setAds(d.ads || []);
+        setSource(d.source || '');
+        if (d.error) setError(d.error);
+      })
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [developer, country]);
+
+  const filtered = ads.filter(ad => {
+    if (filter === 'active'   && !ad.isActive) return false;
+    if (filter === 'inactive' &&  ad.isActive) return false;
+    if (platform !== 'all' && !ad.platforms.includes(platform)) return false;
+    return true;
+  });
+
+  if (loading) return (
+    <div className="flex items-center gap-2 text-gray-400 text-sm py-8">
+      <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+      Loading ad creatives…
+    </div>
+  );
+
+  if (source === 'unconfigured') return (
+    <div className="bg-yellow-900/20 border border-yellow-700/40 rounded-xl p-5 text-sm">
+      <p className="text-yellow-300 font-semibold mb-1">Meta Ad Library not configured</p>
+      <p className="text-yellow-600 text-xs mb-3">Add your Facebook access token to enable ad intelligence.</p>
+      <code className="block bg-gray-900 text-gray-300 text-xs p-3 rounded-lg">
+        META_ACCESS_TOKEN=your_token_here
+      </code>
+      <p className="text-gray-600 text-xs mt-2">
+        Get a free token at developers.facebook.com → Tools → Graph API Explorer
+      </p>
+    </div>
+  );
+
+  if (error) return (
+    <div className="bg-red-900/20 border border-red-800 rounded-xl p-4 text-red-400 text-sm">
+      Error: {error}
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-300">Ad Intelligence</h3>
+          <p className="text-gray-600 text-xs mt-0.5">
+            Facebook & Instagram ads by <span className="text-gray-400">{developer}</span>
+            {ads.length > 0 && <span className="ml-1 text-purple-400">· {ads.length} ads found</span>}
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
+          <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Meta Ad Library
+        </div>
+      </div>
+
+      {/* Filters */}
+      {ads.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-lg p-0.5 text-xs">
+            {(['all', 'active', 'inactive'] as const).map(f => (
+              <button key={f} onClick={() => setFilter(f)}
+                className={`px-3 py-1 rounded-md capitalize transition-colors ${filter === f ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                {f}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-lg p-0.5 text-xs">
+            {(['all', 'facebook', 'instagram'] as const).map(p => (
+              <button key={p} onClick={() => setPlatform(p)}
+                className={`px-3 py-1 rounded-md capitalize transition-colors ${platform === p ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Grid */}
+      {filtered.length === 0 ? (
+        <div className="text-center py-10 text-gray-500 text-sm">
+          {ads.length === 0
+            ? `No Facebook/Instagram ads found for "${developer}"`
+            : 'No ads match the selected filters'}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {filtered.map(ad => <AdCard key={ad.id} ad={ad} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 function AppDetailContent() {
@@ -593,6 +795,7 @@ function AppDetailContent() {
     reviews:      <TabReviews appId={appId} />,
     timeline:     <TabTimeline d={detail} />,
     monetization: <TabMonetization d={detail} dailyRevenue={dailyRevenue} />,
+    ads:          <TabAds developer={detail.developer} country="us" />,
     datasafety:   <TabDataSafety d={detail} />,
     permissions:  <TabPermissions permissions={detail.permissions || []} />,
     sdks:         <TabSDKs appId={appId} />,
