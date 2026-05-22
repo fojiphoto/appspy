@@ -34,6 +34,7 @@ const MARKET_SUBS = [
   { href: '/market?store=apple&view=explorer',  Icon: ASIcon,  label: 'App Market Explorer',   store: 'App Store'   },
   { href: '/market?store=google&view=search',   Icon: GPIcon,  label: 'Real-Time Store Search', store: 'Google Play' },
   { href: '/market?store=apple&view=search',    Icon: ASIcon,  label: 'Real-Time Store Search', store: 'App Store'   },
+  { href: '/new-releases',                      Icon: GPIcon,  label: '🆕 Top New Free',        store: 'Google Play' },
 ];
 
 const NAV = [
