@@ -1,0 +1,5 @@
+{
+  "buildCommand": "rm -rf .next && next build",
+  "framework": "nextjs",
+  "outputDirectory": ".next"
+}
