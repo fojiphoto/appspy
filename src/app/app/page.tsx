@@ -86,7 +86,8 @@ function TabDetails({ d }: { d: AppDetail }) {
           <h3 className="text-sm font-semibold text-gray-300 mb-2">Screenshots</h3>
           <div className="flex gap-2 overflow-x-auto pb-2">
             {d.screenshots.slice(0, 8).map((s, i) => (
-              <img key={i} src={s} alt="" className="h-52 rounded-xl shrink-0 border border-gray-800" />
+              <img key={i} src={s} alt="" referrerPolicy="no-referrer" crossOrigin="anonymous"
+                className="h-52 rounded-xl shrink-0 border border-gray-800 object-cover" />
             ))}
           </div>
         </div>
@@ -520,7 +521,7 @@ function TabRecommended({ appId }: { appId: string }) {
         {apps.map((app: any) => (
           <Link key={app.appId} href={`/app?id=${app.appId}`}>
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 hover:border-purple-600 transition-colors flex gap-3 items-center">
-              <img src={app.icon} alt={app.title} className="w-12 h-12 rounded-xl shrink-0" />
+              <img src={app.icon} alt={app.title} referrerPolicy="no-referrer" className="w-12 h-12 rounded-xl shrink-0 object-cover" />
               <div className="min-w-0">
                 <p className="text-white text-xs font-medium truncate">{app.title}</p>
                 <p className="text-gray-500 text-xs truncate">{app.developer}</p>
@@ -603,7 +604,8 @@ function AppDetailContent() {
       {/* App Header */}
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 mb-6">
         <div className="flex gap-4 items-start flex-wrap">
-          <img src={detail.icon} alt={detail.title} className="w-20 h-20 rounded-2xl shrink-0 border border-gray-700" />
+          <img src={detail.icon} alt={detail.title} referrerPolicy="no-referrer"
+            className="w-20 h-20 rounded-2xl shrink-0 border border-gray-700 object-cover" />
           <div className="flex-1 min-w-0">
             <h1 className="text-xl font-bold text-white">{detail.title}</h1>
             <Link href={`/publisher?devId=${encodeURIComponent(detail.developerId)}&name=${encodeURIComponent(detail.developer)}`}

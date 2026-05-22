@@ -84,7 +84,7 @@ function SearchContent() {
               return (
                 <Link key={app.appId} href={`/app?id=${app.appId}`}>
                   <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-purple-600 transition-colors flex gap-4 items-center">
-                    <img src={app.icon} alt={app.title} className="w-16 h-16 rounded-xl shrink-0 border border-gray-800" />
+                    <img src={app.icon} alt={app.title} referrerPolicy="no-referrer" className="w-16 h-16 rounded-xl shrink-0 border border-gray-800 object-cover" />
                     <div className="flex-1 min-w-0">
                       <h3 className="text-white font-semibold">{app.title}</h3>
                       <p className="text-gray-400 text-sm">{app.developer}</p>

@@ -92,7 +92,7 @@ function PublisherContent() {
               <Link key={app.appId} href={`/app?id=${app.appId}`}>
                 <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-purple-600 transition-colors h-full">
                   <div className="flex gap-3 items-start">
-                    <img src={app.icon} alt={app.title} className="w-14 h-14 rounded-xl shrink-0" />
+                    <img src={app.icon} alt={app.title} referrerPolicy="no-referrer" className="w-14 h-14 rounded-xl shrink-0 object-cover" />
                     <div className="min-w-0 flex-1">
                       <h3 className="text-white font-semibold text-sm truncate">{app.title}</h3>
                       <p className="text-gray-500 text-xs">{app.genre}</p>

@@ -28,6 +28,7 @@ export default function AppCard({
         <img
           src={icon}
           alt={title}
+          referrerPolicy="no-referrer"
           className="w-14 h-14 rounded-xl shrink-0 object-cover"
           onError={(e) => { (e.target as HTMLImageElement).src = '/placeholder.png'; }}
         />
