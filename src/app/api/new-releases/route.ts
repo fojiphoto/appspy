@@ -11,7 +11,7 @@
  *               100% free, real dates from Apple's official RSS feed.
  *
  * Query params:
- *   store      google | apple          (default: google)
+ *   store      google | apple | amazon (default: google)
  *   category   APPLICATION | GAME | …  (default: APPLICATION)
  *   country    us | gb | pk | …        (default: us)
  *   num        1–100                   (default: 20)
@@ -20,6 +20,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import storeApp from 'app-store-scraper';
+import { fetchAmazonChart } from '@/lib/amazon';
 import {
   hasDFSCredentials,
   dfsAppList,
@@ -58,6 +59,35 @@ export async function GET(req: NextRequest) {
   const type     = searchParams.get('type')     || 'free'; // free | paid
 
   try {
+    /* ── Amazon Appstore ───────────────────────────────────────────────── */
+    if (store === 'amazon') {
+      const raw = await fetchAmazonChart('TOP_NEW_FREE', category, num);
+      const enriched = raw.map((app: any, i: number) => ({
+        appId:            app.appId,
+        title:            app.title,
+        developer:        app.developer,
+        developerId:      '',
+        icon:             app.icon,
+        score:            app.score || 0,
+        reviews:          app.reviews || 0,
+        installs:         null,
+        genre:            'Amazon App',
+        genreId:          'APPLICATION',
+        free:             app.free,
+        rank:             i + 1,
+        estDailyInstalls: estimateDailyDownloads(i + 1, 'APPLICATION', 'us'),
+        releasedDate:     null,
+        ageText:          null,
+        hasRealDate:      false,
+        store:            'amazon',
+      }));
+      return NextResponse.json({
+        apps:        enriched,
+        source:      'amazon',
+        hasRealDates: false,
+      });
+    }
+
     /* ── Apple App Store ───────────────────────────────────────────────── */
     if (store === 'apple') {
       const colKey = type === 'paid' ? 'NEW_PAID_IOS' : 'NEW_FREE_IOS';
