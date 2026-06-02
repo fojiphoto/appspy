@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   Home, Globe, Package, Bookmark, TrendingUp, Flame,
   GitCompareArrows, Search, MapPin, Megaphone, Wrench,
-  Bell, BarChart2, ChevronRight,
+  Bell, BarChart2, Sparkles, ChevronRight,
 } from 'lucide-react';
 
 // Google Play icon
@@ -44,6 +44,7 @@ const NAV = [
   { href: '/collections',  icon: Bookmark,         label: 'Collections' },
   { href: '/top-charts',   icon: TrendingUp,       label: 'Top Charts' },
   { href: '/trending',     icon: Flame,            label: 'Trending' },
+  { href: '/new-releases', icon: Sparkles,         label: 'New Releases' },
   { href: '/compare',      icon: GitCompareArrows, label: 'Compare' },
   { href: '/keyword',      icon: Search,           label: 'Keyword' },
   { href: '/availability', icon: MapPin,           label: 'Availability' },
