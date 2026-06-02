@@ -169,6 +169,13 @@ function AppRow({ app, rank, store }: { app: any; rank: number; store: Store }) 
 
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
+// Default category per store
+const DEFAULT_CATEGORY: Record<Store, string> = {
+  google: 'GAME',
+  apple:  'GAME',
+  amazon: 'GAME',
+};
+
 export default function NewReleasesPage() {
   const [store, setStore]      = useState<Store>('google');
   const [apps, setApps]        = useState<any[]>([]);
@@ -176,17 +183,19 @@ export default function NewReleasesPage() {
   const [source, setSource]    = useState('');
   const [error, setError]      = useState('');
   const [country, setCountry]  = useState('us');
-  const [category, setCategory] = useState('APPLICATION');
+  const [category, setCategory] = useState<string>(DEFAULT_CATEGORY.google);
   const [num, setNum]          = useState(50);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ Today: true, 'This Week': true });
   const [selectedDate, setSelectedDate] = useState<string>('');
 
   const prevStore = useRef<Store>('google');
 
-  // Reset expandedGroups when store changes
+  // Reset expandedGroups and category when store changes
   useEffect(() => {
     if (prevStore.current !== store) {
       prevStore.current = store;
+      setCategory(DEFAULT_CATEGORY[store]);
+      setSelectedDate('');
       setExpandedGroups({ Today: true, 'This Week': true });
     }
   }, [store]);

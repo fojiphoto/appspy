@@ -38,16 +38,21 @@ function ageText(dateStr: string): string {
   return `${Math.floor(days / 365)}y ago`;
 }
 
-// Apple category IDs
+// Google Play → Apple category ID mapping
 const AS_CAT: Record<string, number> = {
-  APPLICATION: 0, GAME: 6014,
-  GAME_ACTION: 7001, GAME_ADVENTURE: 7002, GAME_ARCADE: 7003,
-  GAME_CASUAL: 7017, GAME_PUZZLE: 7012, GAME_RACING: 7013,
-  GAME_ROLE_PLAYING: 7014, GAME_SIMULATION: 7015, GAME_STRATEGY: 7016,
-  GAME_SPORTS: 7019, SOCIAL: 6005, PRODUCTIVITY: 6007, EDUCATION: 6017,
-  ENTERTAINMENT: 6016, FINANCE: 6015, HEALTH_AND_FITNESS: 6013,
-  COMMUNICATION: 6018, SHOPPING: 6024, MUSIC_AND_AUDIO: 6011,
-  PHOTOGRAPHY: 6008, TRAVEL_AND_LOCAL: 6003, FOOD_AND_DRINK: 6023,
+  APPLICATION:         0,      // All Categories
+  GAME:                6014,   // Games
+  GAME_ACTION:         7001,   // Games > Action
+  GAME_CASUAL:         7003,   // Games > Casual (mapped to Arcade, closest match)
+  GAME_PUZZLE:         7012,   // Games > Puzzle
+  GAME_STRATEGY:       7016,   // Games > Strategy
+  GAME_ARCADE:         7003,   // Games > Arcade
+  COMMUNICATION:       6018,   // Developer Tools / Communication
+  SOCIAL:              6005,   // Social Networking
+  TOOLS:               6002,   // Utilities
+  PRODUCTIVITY:        6007,   // Productivity
+  ENTERTAINMENT:       6016,   // Entertainment
+  EDUCATION:           6017,   // Education
 };
 
 export async function GET(req: NextRequest) {
