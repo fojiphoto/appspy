@@ -3,6 +3,7 @@ import gplay from 'google-play-scraper';
 import storeApp from 'app-store-scraper';
 import { fetchAmazonChart } from '@/lib/amazon';
 import { estimateDailyDownloads, estimateDailyRevenue } from '@/lib/estimates';
+import { detectGameSubCategory } from '@/lib/gameCategories';
 
 // ── Apple collection + category maps ─────────────────────────────────────────
 
@@ -53,23 +54,28 @@ export async function GET(req: NextRequest) {
         num,
       });
 
-      const apps = (results || []).map((app: any, i: number) => ({
-        rank:                    i + 1,
-        appId:                   app.appId,
-        title:                   app.title,
-        developer:               app.developer,
-        icon:                    app.icon,
-        score:                   app.score || 0,
-        installs:                null,
-        free:                    app.free ?? true,
-        price:                   app.price || 0,
-        genre:                   app.primaryGenre || '',
-        genreId:                 String(app.primaryGenreId || ''),
-        estimatedDailyDownloads: estimateDailyDownloads(i + 1, 'GAME', country),
-        estimatedDailyRevenue:   estimateDailyRevenue(i + 1, country),
-        url:                     app.url,
-        store:                   'apple',
-      }));
+      const apps = (results || []).map((app: any, i: number) => {
+        const isGame = category.includes('GAME');
+        const gameSubCategory = isGame ? detectGameSubCategory(app.title, app.description || '', app.primaryGenre || '') : null;
+        return {
+          rank:                    i + 1,
+          appId:                   app.appId,
+          title:                   app.title,
+          developer:               app.developer,
+          icon:                    app.icon,
+          score:                   app.score || 0,
+          installs:                null,
+          free:                    app.free ?? true,
+          price:                   app.price || 0,
+          genre:                   app.primaryGenre || '',
+          genreId:                 String(app.primaryGenreId || ''),
+          gameSubCategory:         gameSubCategory,
+          estimatedDailyDownloads: estimateDailyDownloads(i + 1, 'GAME', country),
+          estimatedDailyRevenue:   estimateDailyRevenue(i + 1, country),
+          url:                     app.url,
+          store:                   'apple',
+        };
+      });
 
       return NextResponse.json({ apps, category, country, collection, store: 'apple' });
     } catch (err: any) {
@@ -114,25 +120,30 @@ export async function GET(req: NextRequest) {
       fullDetail: false,
     });
 
-    const apps = results.map((app: any, i: number) => ({
-      rank:                    i + 1,
-      appId:                   app.appId,
-      title:                   app.title,
-      developer:               app.developer,
-      icon:                    app.icon,
-      score:                   app.score,
-      scoreText:               app.scoreText,
-      installs:                app.installs,
-      free:                    app.free,
-      price:                   app.price,
-      currency:                app.currency,
-      genre:                   app.genre,
-      genreId:                 app.genreId,
-      estimatedDailyDownloads: estimateDailyDownloads(i + 1, category, country),
-      estimatedDailyRevenue:   estimateDailyRevenue(i + 1, country),
-      url:                     app.url,
-      store:                   'google',
-    }));
+    const apps = results.map((app: any, i: number) => {
+      const isGame = category.startsWith('GAME');
+      const gameSubCategory = isGame ? detectGameSubCategory(app.title, app.description || '', app.genre) : null;
+      return {
+        rank:                    i + 1,
+        appId:                   app.appId,
+        title:                   app.title,
+        developer:               app.developer,
+        icon:                    app.icon,
+        score:                   app.score,
+        scoreText:               app.scoreText,
+        installs:                app.installs,
+        free:                    app.free,
+        price:                   app.price,
+        currency:                app.currency,
+        genre:                   app.genre,
+        genreId:                 app.genreId,
+        gameSubCategory:         gameSubCategory,
+        estimatedDailyDownloads: estimateDailyDownloads(i + 1, category, country),
+        estimatedDailyRevenue:   estimateDailyRevenue(i + 1, country),
+        url:                     app.url,
+        store:                   'google',
+      };
+    });
 
     return NextResponse.json({ apps, category, country, collection, store: 'google' });
   } catch (err: any) {

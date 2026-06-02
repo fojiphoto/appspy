@@ -82,9 +82,10 @@ export default function TopChartsPage() {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState('');
   const [filters, setFilters]   = useState({
-    category:   DEFAULT_CATEGORY.google,
-    collection: DEFAULT_COLLECTION.google,
-    country:    'us',
+    category:         DEFAULT_CATEGORY.google,
+    collection:       DEFAULT_COLLECTION.google,
+    country:          'us',
+    gameSubCategory:  '',
   });
 
   const prevStore = useRef<Store>('google');
@@ -94,9 +95,10 @@ export default function TopChartsPage() {
     if (prevStore.current !== store) {
       prevStore.current = store;
       setFilters({
-        category:   DEFAULT_CATEGORY[store],
-        collection: DEFAULT_COLLECTION[store],
-        country:    'us',
+        category:         DEFAULT_CATEGORY[store],
+        collection:       DEFAULT_COLLECTION[store],
+        country:          'us',
+        gameSubCategory:  '',
       });
     }
   }, [store]);
@@ -104,11 +106,17 @@ export default function TopChartsPage() {
   const fetchCharts = useCallback(async () => {
     setLoading(true); setError('');
     try {
-      const params = new URLSearchParams({ ...filters, store, num: '50' });
+      const { gameSubCategory, ...apiFilters } = filters;
+      const params = new URLSearchParams({ ...apiFilters, store, num: '50' });
       const res  = await fetch(`/api/top-charts?${params}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setApps(data.apps || []);
+      let apps = data.apps || [];
+      // Filter by game sub-category if selected
+      if (gameSubCategory) {
+        apps = apps.filter((app: any) => app.gameSubCategory === gameSubCategory);
+      }
+      setApps(apps);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -153,6 +161,7 @@ export default function TopChartsPage() {
         category={filters.category}
         collection={filters.collection}
         country={filters.country}
+        gameSubCategory={filters.gameSubCategory}
         store={store}
         onChange={(k, v) => setFilters(p => ({ ...p, [k]: v }))}
       />

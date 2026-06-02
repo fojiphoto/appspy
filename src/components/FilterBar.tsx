@@ -1,4 +1,5 @@
 'use client';
+import { getAllSubCategories } from '@/lib/gameCategories';
 
 const CATEGORIES_GOOGLE = [
   { value: 'APPLICATION', label: 'All Apps' },
@@ -80,18 +81,21 @@ const COUNTRIES = [
 ];
 
 interface FilterBarProps {
-  category:   string;
-  collection: string;
-  country:    string;
-  store?:     string;
-  onChange:   (key: string, value: string) => void;
+  category:       string;
+  collection:     string;
+  country:        string;
+  gameSubCategory?: string;
+  store?:         string;
+  onChange:       (key: string, value: string) => void;
 }
 
-export default function FilterBar({ category, collection, country, store = 'google', onChange }: FilterBarProps) {
+export default function FilterBar({ category, collection, country, gameSubCategory = '', store = 'google', onChange }: FilterBarProps) {
   const selectClass = "bg-gray-800 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-purple-500 cursor-pointer";
 
   const categories  = store === 'apple' ? CATEGORIES_APPLE  : store === 'amazon' ? CATEGORIES_AMAZON  : CATEGORIES_GOOGLE;
   const collections = store === 'apple' ? COLLECTIONS_APPLE : store === 'amazon' ? COLLECTIONS_AMAZON : COLLECTIONS_GOOGLE;
+  const isGameCategory = category.startsWith('GAME');
+  const gameSubCategories = getAllSubCategories();
 
   return (
     <div className="flex flex-wrap gap-3 mb-6">
@@ -102,6 +106,13 @@ export default function FilterBar({ category, collection, country, store = 'goog
       <select value={collection} onChange={e => onChange('collection', e.target.value)} className={selectClass}>
         {collections.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
       </select>
+
+      {isGameCategory && (
+        <select value={gameSubCategory} onChange={e => onChange('gameSubCategory', e.target.value)} className={selectClass}>
+          <option value="">All Game Types</option>
+          {gameSubCategories.map(g => <option key={g.value} value={g.value}>{g.emoji} {g.label}</option>)}
+        </select>
+      )}
 
       {store !== 'amazon' && (
         <select value={country} onChange={e => onChange('country', e.target.value)} className={selectClass}>

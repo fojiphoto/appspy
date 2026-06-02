@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Star, Download, DollarSign } from 'lucide-react';
 import { formatNumber } from '@/lib/estimates';
+import { getCategoryLabel } from '@/lib/gameCategories';
 
 function amzImg(url: string): string {
   return `/api/amazon-image?url=${encodeURIComponent(url)}`;
@@ -16,6 +17,7 @@ interface AppCardProps {
   installs: string;
   free: boolean;
   genre: string;
+  gameSubCategory?: string;
   estimatedDailyDownloads: number;
   estimatedDailyRevenue: number;
   store?: string;
@@ -23,7 +25,7 @@ interface AppCardProps {
 
 export default function AppCard({
   rank, appId, title, developer, icon, score,
-  installs, free, genre, estimatedDailyDownloads, estimatedDailyRevenue,
+  installs, free, genre, gameSubCategory, estimatedDailyDownloads, estimatedDailyRevenue,
   store = 'google',
 }: AppCardProps) {
   const href    = `/app?id=${appId}${store !== 'google' ? `&store=${store}` : ''}`;
@@ -48,7 +50,15 @@ export default function AppCard({
           <p className="text-gray-500 text-xs truncate">{developer}</p>
           <p className="text-gray-600 text-xs mt-0.5">{genre}</p>
 
-          <div className="flex items-center gap-3 mt-2 text-xs">
+          <div className="flex items-center gap-3 mt-2 text-xs flex-wrap">
+            {gameSubCategory && (
+              <span className="px-2 py-0.5 rounded-full bg-purple-600/20 border border-purple-500/40 text-purple-300 text-[10px] font-semibold">
+                {getCategoryLabel(gameSubCategory)}
+              </span>
+            )}
+            {!gameSubCategory && genre && (
+              <span className="text-gray-500">{genre}</span>
+            )}
             <span className="flex items-center gap-1 text-yellow-400">
               <Star size={11} fill="currentColor" />
               {score?.toFixed(1) || 'N/A'}
