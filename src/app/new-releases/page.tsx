@@ -179,6 +179,7 @@ export default function NewReleasesPage() {
   const [category, setCategory] = useState('APPLICATION');
   const [num, setNum]          = useState(50);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ Today: true, 'This Week': true });
+  const [selectedDate, setSelectedDate] = useState<string>('');
 
   const prevStore = useRef<Store>('google');
 
@@ -209,8 +210,16 @@ export default function NewReleasesPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const dateGroups = groupByDate(apps);
-  const totalApps = apps.length;
+  // Filter apps by selected date
+  const filteredApps = selectedDate
+    ? apps.filter(app => app.releasedDate === selectedDate)
+    : apps;
+
+  const dateGroups = groupByDate(filteredApps);
+  const totalApps = filteredApps.length;
+
+  // Get all unique dates from apps for calendar
+  const availableDates = [...new Set(apps.filter(a => a.releasedDate).map(a => a.releasedDate))].sort().reverse();
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
@@ -258,6 +267,28 @@ export default function NewReleasesPage() {
           <option value={100}>Top 100</option>
         </select>
 
+        {/* Date picker */}
+        {availableDates.length > 0 && (
+          <div className="relative">
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              min={availableDates[availableDates.length - 1]}
+              max={availableDates[0]}
+              className="bg-gray-900 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-purple-500 cursor-pointer"
+            />
+            {selectedDate && (
+              <button
+                onClick={() => setSelectedDate('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        )}
+
         <button onClick={load} disabled={loading}
           className="flex items-center gap-1.5 bg-gray-900 border border-gray-700 hover:border-purple-500 text-gray-300 text-sm px-3 py-2 rounded-lg transition-colors disabled:opacity-50">
           <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
@@ -265,12 +296,17 @@ export default function NewReleasesPage() {
       </div>
 
       {/* Stats */}
-      {!loading && totalApps > 0 && (
+      {!loading && apps.length > 0 && (
         <div className="flex gap-4 mb-4 text-xs text-gray-500">
-          <span className="flex items-center gap-1"><Package size={11} /> {totalApps} apps</span>
+          <span className="flex items-center gap-1"><Package size={11} /> {totalApps}/{apps.length} apps</span>
           <span className="flex items-center gap-1">
             <Calendar size={11} /> {apps.filter(a => a.hasRealDate).length} with dates
           </span>
+          {selectedDate && (
+            <span className="flex items-center gap-1 text-purple-400">
+              📅 {new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+          )}
         </div>
       )}
 
