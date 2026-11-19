@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   Home, Globe, Package, Bookmark, TrendingUp, Flame,
   GitCompareArrows, Search, MapPin, Megaphone, Wrench,
-  Bell, BarChart2, Sparkles, ChevronRight,
+  Bell, BarChart2, Sparkles, ChevronRight, Trophy,
 } from 'lucide-react';
 
 // Google Play icon
@@ -34,7 +34,7 @@ const MARKET_SUBS = [
   { href: '/market?store=apple&view=explorer',  Icon: ASIcon,  label: 'App Market Explorer',   store: 'App Store'   },
   { href: '/market?store=google&view=search',   Icon: GPIcon,  label: 'Real-Time Store Search', store: 'Google Play' },
   { href: '/market?store=apple&view=search',    Icon: ASIcon,  label: 'Real-Time Store Search', store: 'App Store'   },
-  { href: '/new-releases',                      Icon: GPIcon,  label: '🆕 Top New Free',        store: 'Google Play' },
+  { href: '/top-new-games',                     Icon: GPIcon,  label: '🆕 Top 100 New Games',   store: 'Google Play' },
 ];
 
 const NAV = [
@@ -44,6 +44,7 @@ const NAV = [
   { href: '/collections',  icon: Bookmark,         label: 'Collections' },
   { href: '/top-charts',   icon: TrendingUp,       label: 'Top Charts' },
   { href: '/trending',     icon: Flame,            label: 'Trending' },
+  { href: '/top-new-games', icon: Trophy,          label: 'Top New Games' },
   { href: '/new-releases', icon: Sparkles,         label: 'New Releases' },
   { href: '/compare',      icon: GitCompareArrows, label: 'Compare' },
   { href: '/keyword',      icon: Search,           label: 'Keyword' },

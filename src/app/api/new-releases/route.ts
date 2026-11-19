@@ -3,9 +3,9 @@
  *
  * Returns newly published apps with REAL release dates.
  *
- * Google Play  → DataForSEO app_list (topselling_new_free / topselling_new_paid)
- *               + DataForSEO app_info for per-app released_date
- *               Falls back to empty list if credentials not configured.
+ * Google Play  → data/top-new/latest.json, written daily by scripts/top-new/collect.mjs:
+ *               games released in the last 30 days, release date and installs read from
+ *               Google Play. Games only; `country` does not apply (installs are worldwide).
  *
  * Apple Store  → app-store-scraper (NEW_FREE_IOS / NEW_PAID_IOS)
  *               100% free, real dates from Apple's official RSS feed.
@@ -21,12 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import storeApp from 'app-store-scraper';
 import { fetchAmazonChart } from '@/lib/amazon';
-import {
-  hasDFSCredentials,
-  dfsAppList,
-  dfsAppInfo,
-  DFS_COLLECTION_MAP,
-} from '@/lib/dataforseo';
+import { isGameCategory, newGames, topNewDate } from '@/lib/topNewData';
 import { estimateDailyDownloads } from '@/lib/estimates';
 
 function ageText(dateStr: string): string {
@@ -104,8 +99,12 @@ export async function GET(req: NextRequest) {
       const catId = AS_CAT[category];
       if (catId) appleOpts.category = catId;
 
-      const apps: any[] = await (storeApp as any).list(appleOpts);
-      const enriched = apps.map((app: any, i: number) => {
+      const listed: any[] = await (storeApp as any).list(appleOpts);
+      // Apple's "new apps" feed ignores the genre it is asked for and returns every category
+      // (seen 2026-11-18: 109 apps, 23 genres, for a Games request). Filter here instead.
+      const wantGames = category === 'GAME' || category.startsWith('GAME_');
+      const apps = wantGames ? listed.filter((app: any) => app.genre === 'Games' || String(app.genreId) === '6014') : listed;
+      const enriched = apps.slice(0, num).map((app: any, i: number) => {
         const releasedDate = app.released
           ? new Date(app.released).toISOString().split('T')[0]
           : null;
@@ -138,74 +137,21 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    /* ── Google Play via DataForSEO ────────────────────────────────────── */
-    if (!hasDFSCredentials()) {
+    /* ── Google Play: games with a release date read from Google Play ─── */
+    // Google Play has no "top new" chart, and the DataForSEO route this used to call was never
+    // configured in production, so it returned nothing. See src/lib/topNewData.ts.
+    if (!isGameCategory(category)) {
       return NextResponse.json({
-        apps:         [],
-        source:       'unconfigured',
-        hasRealDates: false,
-        message:      'DataForSEO credentials not configured. Add DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD to .env.local',
+        apps: [], source: 'google-play', hasRealDates: true,
+        message: 'New releases on Google Play are tracked for games only. Pick a game category.',
       });
     }
-
-    const dfsCollection = type === 'paid'
-      ? DFS_COLLECTION_MAP['TOP_NEW_PAID']
-      : DFS_COLLECTION_MAP['TOP_NEW_FREE'];
-
-    // Step 1: Get chart listing
-    const listItems = await dfsAppList({
-      collection: dfsCollection,
-      category:   category !== 'APPLICATION' ? category : undefined,
-      country,
-      num,
+    return NextResponse.json({
+      apps: newGames({ category, type, num }),
+      source: 'google-play',
+      hasRealDates: true,
+      updated: topNewDate(),
     });
-
-    if (!listItems.length) {
-      return NextResponse.json({ apps: [], source: 'dataforseo', hasRealDates: false });
-    }
-
-    // Step 2: Batch fetch release dates (top 20 only to keep cost minimal)
-    const appIds   = listItems.slice(0, 20).map(item => item.app_id);
-    let   infoMap: Record<string, any> = {};
-    try {
-      infoMap = await dfsAppInfo(appIds, country);
-    } catch {
-      // app_info failure is non-fatal — show apps without dates
-    }
-
-    const enriched = listItems.map((item, i) => {
-      const info     = infoMap[item.app_id];
-      const rawDate  = info?.released_date; // "2024-03-15 00:00:00 +00:00"
-      const releasedDate = rawDate
-        ? new Date(rawDate).toISOString().split('T')[0]
-        : null;
-
-      return {
-        appId:           item.app_id,
-        title:           item.title,
-        developer:       item.developer_name || '',
-        developerId:     '',
-        icon:            item.icon,
-        score:           item.rating?.value      || 0,
-        reviews:         item.rating?.votes_count || 0,
-        installs:        item.installs            || null,
-        minInstalls:     0,
-        genre:           item.categories?.[0]     || '',
-        free:            item.is_free ?? (type !== 'paid'),
-        rank:            i + 1,
-        estDailyInstalls: estimateDailyDownloads(i + 1, category, country),
-        releasedDate,
-        ageText:         releasedDate ? ageText(releasedDate) : null,
-        hasRealDate:     !!releasedDate,
-        store:           'google',
-      };
-    });
-
-    // hasRealDates = true if at least half the returned apps have dates
-    const dateCount    = enriched.filter(a => a.hasRealDate).length;
-    const hasRealDates = dateCount >= Math.min(3, enriched.length);
-
-    return NextResponse.json({ apps: enriched, source: 'dataforseo', hasRealDates });
 
   } catch (e: any) {
     console.error('[/api/new-releases]', e.message);

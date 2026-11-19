@@ -32,6 +32,7 @@ import {
   DFS_ONLY_COLLECTIONS,
 } from '@/lib/dataforseo';
 import { fetchAmazonChart } from '@/lib/amazon';
+import { isGameCategory, newGames } from '@/lib/topNewData';
 
 function ageText(dateStr: string): string {
   const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
@@ -144,7 +145,15 @@ export async function GET(req: NextRequest) {
         };
       });
 
-    /* ── Google Play via DataForSEO (new & trending collections) ────── */
+    /* ── Google Play "Top New": games from the collected data set ───── */
+    // Was DataForSEO, which production never had credentials for; the request then fell through
+    // to the ordinary Top Free chart and was shown under a "Top New" label.
+    } else if (store === 'google' && (collection === 'TOP_NEW_FREE' || collection === 'TOP_NEW_PAID')) {
+      enriched = isGameCategory(category) || category === 'APPLICATION'
+        ? newGames({ category: category === 'APPLICATION' ? 'GAME' : category, type: collection === 'TOP_NEW_PAID' ? 'paid' : 'free', num })
+        : [];
+
+    /* ── Google Play via DataForSEO (Movers & Shakers) ──────────────── */
     } else if (DFS_ONLY_COLLECTIONS.has(collection) && hasDFSCredentials()) {
       const dfsCol = DFS_COLLECTION_MAP[collection];
       const items  = await dfsAppList({
@@ -196,9 +205,12 @@ export async function GET(req: NextRequest) {
 
     /* ── Google Play via google-play-scraper (TOP_FREE, TOP_PAID, GROSSING) */
     } else {
-      // If a DFS-only collection is requested but credentials are missing,
-      // fall back gracefully to TOP_FREE
-      const gpCol = GP_COL[collection] || 'TOP_FREE';
+      // A collection Google Play does not have (Movers & Shakers without DataForSEO) returns
+      // nothing rather than another chart under the wrong name.
+      if (!GP_COL[collection]) {
+        return NextResponse.json({ apps: [], message: 'This chart is not available for Google Play.' });
+      }
+      const gpCol = GP_COL[collection];
       const apps: any[] = await (gplay as any).list({
         category:   (gplay as any).category[category] ?? category,
         collection: (gplay as any).collection[gpCol],

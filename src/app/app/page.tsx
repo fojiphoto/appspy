@@ -117,6 +117,20 @@ function TabDetails({ d }: { d: AppDetail }) {
   );
 }
 
+/**
+ * The three history charts below are drawn by src/lib/history.ts, which makes a curve up from the
+ * app id. AppSpy stores no history for arbitrary apps, so only the last point of each curve is a
+ * real value. This notice says so on the page until the charts are fed real snapshots.
+ */
+function SimulatedNote({ what }: { what: string }) {
+  return (
+    <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+      Illustration only. AppSpy has no stored {what} history for this app, so this curve is generated, not measured.
+      Only the current value is real.
+    </p>
+  );
+}
+
 function TabDownloads({ appId, dailyDownloads }: { appId: string; dailyDownloads: number }) {
   const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
   const daily = generateDownloadHistory(appId, dailyDownloads, 90);
@@ -139,6 +153,7 @@ function TabDownloads({ appId, dailyDownloads }: { appId: string; dailyDownloads
         </div>
       </div>
 
+      <SimulatedNote what="download" />
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
         <p className="text-xs text-gray-500 mb-4">Installs (estimated)</p>
         <ResponsiveContainer width="100%" height={260}>
@@ -176,6 +191,7 @@ function TabRanks({ appId, currentRank }: { appId: string; currentRank: number }
   return (
     <div className="space-y-4">
       <h3 className="text-sm font-semibold text-gray-300">Ranking History</h3>
+      <SimulatedNote what="chart rank" />
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
         <p className="text-xs text-gray-500 mb-4">Chart Rank (lower = better)</p>
         <ResponsiveContainer width="100%" height={260}>
@@ -237,6 +253,7 @@ function TabRatings({ d }: { d: AppDetail }) {
           })}
         </div>
       </div>
+      <SimulatedNote what="rating" />
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
         <p className="text-xs text-gray-500 mb-4">Rating Trend (90 days)</p>
         <ResponsiveContainer width="100%" height={180}>

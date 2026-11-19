@@ -4,6 +4,7 @@ import storeApp from 'app-store-scraper';
 import { fetchAmazonChart } from '@/lib/amazon';
 import { estimateDailyDownloads, estimateDailyRevenue } from '@/lib/estimates';
 import { detectGameSubCategory } from '@/lib/gameCategories';
+import { isGameCategory, newGames } from '@/lib/topNewData';
 
 // ── Apple collection + category maps ─────────────────────────────────────────
 
@@ -108,6 +109,20 @@ export async function GET(req: NextRequest) {
     } catch (err: any) {
       return NextResponse.json({ error: err.message }, { status: 500 });
     }
+  }
+
+  // ── Google Play: "Top New" ───────────────────────────────────────────────────
+  // Not a chart Google Play has: google-play-scraper rejected it ("Invalid collection"). Served
+  // from the collected data set instead: games released in the last 30 days, by real installs.
+  if (collection === 'TOP_NEW_FREE' || collection === 'TOP_NEW_PAID') {
+    const apps = isGameCategory(category)
+      ? newGames({ category, type: collection === 'TOP_NEW_PAID' ? 'paid' : 'free', num }).map((app) => ({
+          ...app,
+          gameSubCategory: detectGameSubCategory(app.title, '', app.genre),
+          estimatedDailyRevenue: null,
+        }))
+      : [];
+    return NextResponse.json({ apps, category, country, collection, store: 'google' });
   }
 
   // ── Google Play ──────────────────────────────────────────────────────────────

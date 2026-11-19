@@ -182,6 +182,7 @@ export default function NewReleasesPage() {
   const [loading, setLoading]  = useState(true);
   const [source, setSource]    = useState('');
   const [error, setError]      = useState('');
+  const [note, setNote]        = useState('');
   const [country, setCountry]  = useState('us');
   const [category, setCategory] = useState<string>(DEFAULT_CATEGORY.google);
   const [num, setNum]          = useState(50);
@@ -211,6 +212,7 @@ export default function NewReleasesPage() {
       .then(d => {
         setApps(d.apps || []);
         setSource(d.source || '');
+        setNote(d.message || '');
         if (d.error) setError(d.error);
       })
       .catch(e => setError(e.message))
@@ -344,7 +346,7 @@ export default function NewReleasesPage() {
 
       {/* Empty */}
       {!loading && !error && source !== 'unconfigured' && totalApps === 0 && (
-        <div className="p-8 text-center text-gray-500 text-sm">No new releases found for selected filters</div>
+        <div className="p-8 text-center text-gray-500 text-sm">{note || 'No new releases found for selected filters'}</div>
       )}
 
       {/* Date-grouped apps */}
@@ -377,7 +379,7 @@ export default function NewReleasesPage() {
       {totalApps > 0 && !loading && (
         <p className="text-gray-700 text-xs text-center mt-4">
           {source === 'apple' && '100% real dates from Apple App Store RSS feed'}
-          {source === 'dataforseo' && 'Release dates from DataForSEO · Top 20 apps verified'}
+          {source === 'google-play' && 'Games released in the last 30 days · release date and installs read from Google Play · worldwide'}
           {source === 'amazon' && 'Apps from Amazon Appstore · Dates not available'}
         </p>
       )}
