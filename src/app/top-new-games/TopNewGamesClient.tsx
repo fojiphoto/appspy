@@ -280,8 +280,8 @@ export default function TopNewGamesClient({ data }: { data: TopNewData }) {
               <th className="px-3 py-2.5 text-right font-medium" title="Model, not measured. See the method section.">
                 <span className="text-amber-300">Est.</span> revenue
               </th>
-              <th className="px-3 py-2.5 text-right font-medium" title="Model, not measured. Mid scenario; open the row for low and high.">
-                <span className="text-amber-300">Est.</span> UA spend
+              <th className="px-3 py-2.5 text-right font-medium" title="Best Top Free chart position today, in the 26 countries read. A game with millions of installs and no chart position got them from ads, not from the store.">
+                Top Free chart
               </th>
             </tr>
           </thead>
@@ -333,7 +333,11 @@ export default function TopNewGamesClient({ data }: { data: TopNewData }) {
                       {rev ? (rev.low === rev.high ? money(rev.low) : `${money(rev.low)} – ${money(rev.high)}`) : <span className="text-gray-600">–</span>}
                       {g.bestGross && <div className="text-xs text-emerald-400" title="Best Top Grossing chart position today">Grossing #{g.bestGross[0]} {g.bestGross[1].toUpperCase()}</div>}
                     </td>
-                    <td className="px-3 py-2 text-right whitespace-nowrap text-gray-300">{money(ua.mid)}</td>
+                    <td className="px-3 py-2 text-right whitespace-nowrap text-gray-300">
+                      {g.bestFree
+                        ? <>#{g.bestFree[0]} <span className="text-xs text-gray-500">{g.bestFree[1].toUpperCase()}</span></>
+                        : <span className="text-xs text-gray-600" title="Not in the top 200 of any game category in the 26 countries read">not charting</span>}
+                    </td>
                   </tr>
                   {isOpen && (
                     <tr className="border-t border-white/5 bg-white/[0.02]">

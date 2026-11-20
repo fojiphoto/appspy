@@ -1,6 +1,6 @@
 # Top New Games: collect today's data and push it to the portal.
 #
-# Run by the Windows scheduled task "AppSpy Top New Games" at logon and once a day. It needs no
+# Run by the Windows scheduled task "AppSpy Top New Games" at logon and then every hour. It needs no
 # other program: it reads Google Play with Node, commits data/top-new and pushes to GitHub, and
 # the push makes Vercel rebuild appspy.factorialstudio.com with the new tables.
 #
@@ -8,8 +8,9 @@
 #   Run it by hand:                  powershell -ExecutionPolicy Bypass -File scripts\top-new\daily.ps1
 #   Logs:                            logs\top-new-YYYY-MM-DD.log (kept 30 days)
 #
-# It does its work once per day. A second start on the same day only pushes anything that an
-# earlier start collected but could not push (no internet at that moment, for example).
+# It does its work once per day. Every other start on the same day finds nothing to do and leaves
+# within a second, unless an earlier start collected data it could not push (no internet at that
+# moment, for example), in which case it pushes it.
 
 $ErrorActionPreference = 'Continue'
 $repo = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
@@ -29,6 +30,23 @@ function Run([string]$command) {
   cmd /c "$command >> `"$log`" 2>&1"
   return $LASTEXITCODE
 }
+
+# One run at a time. The task starts this script every hour so that a PC that was asleep or off at
+# the usual time still gets its run; a start that finds a run in progress just leaves.
+$lock = Join-Path $logDir 'running.lock'
+if ((Test-Path $lock) -and ((Get-Item $lock).LastWriteTime -gt (Get-Date).AddHours(-3))) { exit 0 }
+
+# Nothing to do: today's data is collected and pushed. Leave without touching the log, so the
+# hourly starts do not fill it.
+$snapshotDone = Test-Path (Join-Path $repo "data\top-new\snapshots\$today.json")
+if ($snapshotDone) {
+  $uncommitted = (cmd /c 'git status --porcelain -- data/top-new')
+  $ahead = (cmd /c 'git rev-list --count @{u}..HEAD 2>nul')
+  if ((-not $uncommitted) -and ([int]$ahead -eq 0)) { exit 0 }
+}
+
+Set-Content -Path $lock -Value $PID
+try {
 
 Log "---- start (repo $repo)"
 
@@ -74,3 +92,7 @@ if ([int]$ahead -gt 0) {
   Log 'Nothing new to push.'
 }
 Log '---- done'
+
+} finally {
+  Remove-Item $lock -Force -ErrorAction SilentlyContinue
+}

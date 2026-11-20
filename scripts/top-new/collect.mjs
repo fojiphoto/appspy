@@ -37,6 +37,9 @@
  * so their real growth is measured from then on.
  *
  * FILES (data/top-new/)
+ *   latest.json and snapshots/ are committed. The next three are this PC's working state and are
+ *   not (15 MB that changes every day); if they are lost, the next run rebuilds them, which takes
+ *   a few hours once.
  *   known.json                pkg -> release date "YYYY-MM-DD", or 0 when Play shows none. Append-only.
  *   developers.json           developer name -> the day their Play page was last read
  *   tracked.json              full record of every game inside the widest window, plus undated ones
@@ -425,8 +428,11 @@ async function build(date) {
   // Undated: Play shows no release date. Listed apart, never ranked with the dated games.
   const undated = Object.values(tracked)
     .filter((g) => !g.released && g.installs != null && !g.gone)
-    // Most installs gained since the tracker first saw the game; total installs break ties.
-    .sort((a, b) => (b.installs - (b.firstInstalls ?? b.installs)) - (a.installs - (a.firstInstalls ?? a.installs)) || b.installs - a.installs)
+    // Most installs gained since the tracker first saw the game.
+    .sort((a, b) => (b.installs - (b.firstInstalls ?? b.installs)) - (a.installs - (a.firstInstalls ?? a.installs))
+      // A game with tens of thousands of ratings is plainly not new; one with none probably is.
+      || (a.ratings ? 1 : 0) - (b.ratings ? 1 : 0)
+      || b.installs - a.installs)
     .slice(0, 200)
     .map(keep);
 
@@ -493,11 +499,36 @@ const offChart = [...devPages.found.keys()].filter((p) => !(p in known) && !seen
 console.log(`      developer pages read ${devPages.checked} (failed ${devPages.failed}) of ${devs.size} developers on the charts; ${offChart.length} games not on any chart`);
 
 const fresh = [...seen.keys()].filter((p) => !(p in known));
-const refresh = Object.keys(tracked).filter((p) => !tracked[p].gone);
+// Reading the developer pages took tracking from 6,000 games to 22,000, most of them far below
+// any table. A game is re-read every day only if it could reach a table soon:
+//   - it is at most 14 days old (a new game can grow tenfold in a week), or
+//   - it already has a fifth of the installs needed to enter the table of the smallest window it
+//     belongs to (a tenth, in its first 30 days), or
+//   - it has no release date and at least 100,000 installs.
+// Every other game is re-read once a week, on a day fixed by its package id.
+const dayNumber = Math.floor(Date.parse(date) / 86400000);
+const entryBar = {};
+for (const days of WINDOWS) {
+  const inWindow = Object.values(tracked)
+    .filter((g) => g.released && g.free && g.ads && !g.gone && daysBetween(g.released, date) <= days)
+    .map((g) => g.installs || 0).sort((a, b) => b - a);
+  entryBar[days] = inWindow[TOP_N - 1] || 0;
+}
+function dueToday(g) {
+  if (hashOf(g.pkg) % 7 === dayNumber % 7) return true;
+  const installs = g.installs || 0;
+  if (!g.released) return installs >= 100000;
+  const age = daysBetween(g.released, date);
+  if (age <= 14) return true;
+  if (age <= 30) return installs >= entryBar[30] / 10;
+  const window = WINDOWS.find((days) => age <= days);
+  return !window || installs >= entryBar[window] / 5;
+}
+const refresh = Object.keys(tracked).filter((p) => !tracked[p].gone && dueToday(tracked[p]));
 // Known to be young enough to track, but not tracked: the span was widened, or tracked.json was lost.
 const backfill = Object.keys(known).filter((p) => known[p] && !(p in tracked) && daysBetween(known[p], date) <= TRACK_DAYS);
 const queue = [...new Set([...fresh, ...offChart, ...refresh, ...backfill])];
-console.log(`[2/3] details: ${fresh.length} new on charts + ${offChart.length} from developer pages + ${refresh.length} tracked + ${backfill.length} to backfill = ${queue.length}`);
+console.log(`[2/3] details: ${fresh.length} new on charts + ${offChart.length} from developer pages + ${refresh.length} of ${Object.keys(tracked).length} tracked + ${backfill.length} to backfill = ${queue.length}`);
 
 let done = 0; let errors = 0; let gone = 0;
 await pool(queue, DETAIL_CONCURRENCY, async (pkg) => {

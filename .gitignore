@@ -42,3 +42,8 @@ next-env.d.ts
 
 # top-new daily task logs
 /logs
+
+# top-new: this PC's working state (rebuilt by the collector if missing)
+/data/top-new/known.json
+/data/top-new/tracked.json
+/data/top-new/developers.json
