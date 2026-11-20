@@ -7,7 +7,6 @@
  */
 
 export interface TopNewGame {
-  rank?: number;
   pkg: string;
   title: string;
   developer: string;
@@ -15,7 +14,7 @@ export interface TopNewGame {
   genreId: string;
   genre: string;
   icon: string;
-  /** "YYYY-MM-DD" from Play's "Released on", or null when Play shows none. */
+  /** "YYYY-MM-DD": the earliest "Released on" date found on Google Play, or null when Play shows none. */
   released: string | null;
   updated: string | null;
   /** Play's own install counter, the exact number behind the "1,000,000+" label. */
@@ -27,42 +26,48 @@ export interface TopNewGame {
   price: number;
   iap: boolean;
   ads: boolean;
-  country: string;
-  firstSeen: string;
-  lastChart: string | null;
   /** [rank, country, category] of the best chart position seen today. */
   bestFree: [number, string, string] | null;
   bestGross: [number, string, string] | null;
   charts: number;
-  ageDays?: number;
-  perDay?: number;
+  /** The day this tracker first recorded the game. */
+  firstSeen: string;
+  /** Installs on that first day, so growth since then is a measured number. */
+  firstInstalls?: number | null;
+  /** Oldest date among the game's most helpful and newest public reviews. */
+  oldestReview: string | null;
   /** Installs gained since the previous snapshot. Null until there is one. */
   delta: number | null;
-  prevRank?: number | null;
-  seenDays?: number;
-  /** Oldest date among the game's 150 most helpful and 150 newest public reviews. */
-  reviewCheck?: { on: string; oldest: string | null } | null;
-  /** Days by which that review precedes the release date. Above 0, the game was public before it. */
-  earlyDays?: number;
+}
+
+/**
+ * small  shows ads and is not a role-playing, strategy or casino game: what a small studio builds
+ * free   every free game, big-budget launches included
+ * paid   paid games, ranked on their own as Google Play does
+ */
+export type ListName = 'small' | 'free' | 'paid';
+
+/** A game placed in one list of one window. */
+export interface TopNewRow extends TopNewGame {
+  rank: number;
+  ageDays: number;
+  perDay: number;
+  /** Rank in the same list in the previous snapshot. Null when it was not in it. */
+  prevRank: number | null;
 }
 
 export interface TopNewWindow {
   days: number;
-  pool: number;
-  poolFree?: number;
-  /** Top 100 free games. */
-  games: TopNewGame[];
-  /** Top paid games, ranked on their own as Google Play does. */
-  paid?: TopNewGame[];
+  /** How many games qualified for each list, before the cut to 100. */
+  pool: Record<ListName, number>;
+  /** Package ids in rank order. */
+  lists: Record<ListName, string[]>;
+  /** Yesterday's pkg -> rank for each list, or null when there is nothing comparable. */
+  before: Record<ListName, Record<string, number> | null>;
+  themes: Record<ListName, { term: string; count: number; installs: number }[]>;
+  since: string | null;
   /** In the window by release date, but public before it, so not ranked. */
-  early?: TopNewGame[];
-  categories: { category: string; count: number; installs: number }[];
-  themes: { term: string; count: number; installs: number; games: string[] }[];
-  changes: null | {
-    since: string;
-    entered: string[];
-    dropped: { pkg: string; title: string; prevRank: number }[];
-  };
+  early: string[];
 }
 
 export interface TopNewData {
@@ -75,9 +80,29 @@ export interface TopNewData {
   run: null | {
     charts_ok: number; charts_failed: number; games_seen: number; new_to_us: number;
     detail_errors: number; removed: number; tracked: number; seconds: number;
+    developers_checked?: number; found_on_developer_pages?: number;
   };
+  /** Every game any list mentions, once. */
+  games: Record<string, TopNewGame>;
   windows: Record<string, TopNewWindow>;
-  undated: TopNewGame[];
+  /** Games with no release date on Google Play, most installed first. */
+  undated: string[];
+}
+
+const DAY = 86400000;
+export const daysBetween = (from: string, to: string): number => Math.round((Date.parse(to) - Date.parse(from)) / DAY);
+
+/** The rows of one list, with rank, age and installs per day filled in. */
+export function rowsOf(data: TopNewData, days: string, list: ListName): TopNewRow[] {
+  const win = data.windows[days];
+  if (!win) return [];
+  const before = win.before?.[list] || null;
+  return (win.lists[list] || []).flatMap((pkg, i) => {
+    const g = data.games[pkg];
+    if (!g) return [];
+    const ageDays = g.released ? daysBetween(g.released, data.date) : 0;
+    return [{ ...g, rank: i + 1, ageDays, perDay: Math.round(g.installs / Math.max(1, ageDays)), prevRank: before ? before[pkg] ?? null : null }];
+  });
 }
 
 /**

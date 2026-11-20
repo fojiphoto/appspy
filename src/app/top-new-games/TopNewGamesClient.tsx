@@ -3,12 +3,25 @@ import { Fragment, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Download, ExternalLink, Search, Star } from 'lucide-react';
 import {
-  type TopNewData, type TopNewGame, UA_SCENARIOS, REVENUE_PER_INSTALL, compact, money, revenueRange, uaSpend,
+  type ListName, type TopNewData, type TopNewGame, type TopNewRow,
+  UA_SCENARIOS, REVENUE_PER_INSTALL, compact, money, revenueRange, rowsOf, uaSpend,
 } from '@/lib/topNew';
 
 const WINDOWS = ['30', '60', '90', '180', '270'] as const;
 const WINDOW_LABEL: Record<string, string> = { '30': '1 month', '60': '2 months', '90': '3 months', '180': '6 months', '270': '9 months' };
 type SortKey = 'rank' | 'installs' | 'perDay' | 'delta' | 'score' | 'ratings' | 'ageDays' | 'title';
+
+const LISTS: { key: ListName; label: string; heading: string; about: string }[] = [
+  {
+    key: 'small', label: 'Small-team games', heading: 'Top New Games a Small Team Could Build',
+    about: 'Free games that show ads and are not role-playing, strategy or casino games. Big-budget launches are in “All free games”.',
+  },
+  {
+    key: 'free', label: 'All free games', heading: 'Top New Free Android Games',
+    about: 'Every free game, including big-publisher launches such as a new PUBG or Free Fire build.',
+  },
+  { key: 'paid', label: 'Paid', heading: 'Top New Paid Android Games', about: 'Paid games, ranked on their own as Google Play does.' },
+];
 
 const COUNTRY_NAMES: Record<string, string> = {
   us: 'United States', gb: 'United Kingdom', de: 'Germany', fr: 'France', es: 'Spain', it: 'Italy', pl: 'Poland',
@@ -28,7 +41,7 @@ function monetisation(g: TopNewGame) {
   return 'Free, none declared';
 }
 
-function toCsv(games: TopNewGame[], days: string) {
+function toCsv(games: TopNewRow[], name: string) {
   const head = ['rank', 'game', 'developer', 'category', 'released', 'age_days', 'installs', 'installs_per_day', 'rating', 'ratings_count',
     'monetisation', 'best_top_free', 'best_top_grossing', 'est_revenue_low_usd', 'est_revenue_high_usd',
     'est_ua_spend_low_usd', 'est_ua_spend_mid_usd', 'est_ua_spend_high_usd', 'package', 'play_url'];
@@ -45,15 +58,15 @@ function toCsv(games: TopNewGame[], days: string) {
   const blob = new Blob([`﻿${head.join(',')}\n${rows.join('\n')}`], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `top-new-games-${days}.csv`;
+  a.download = `top-new-games-${name}.csv`;
   a.click();
   URL.revokeObjectURL(a.href);
 }
 
-function Movement({ g, hasPrev }: { g: TopNewGame; hasPrev: boolean }) {
+function Movement({ g, hasPrev }: { g: TopNewRow; hasPrev: boolean }) {
   if (!hasPrev) return null;
   if (g.prevRank == null) return <span className="ml-1 text-[10px] font-semibold text-emerald-400">NEW</span>;
-  const diff = g.prevRank - (g.rank || 0);
+  const diff = g.prevRank - g.rank;
   if (diff === 0) return null;
   return diff > 0
     ? <span className="ml-1 inline-flex items-center text-[10px] text-emerald-400"><ArrowUp size={10} />{diff}</span>
@@ -78,23 +91,28 @@ function Th({ label, k, sort, setSort, align = 'right', title }: {
   );
 }
 
+function Icon({ src }: { src: string }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={`${src}=s72`} alt="" width={36} height={36} loading="lazy" className="h-9 w-9 shrink-0 rounded-lg bg-white/5" />;
+}
+
 export default function TopNewGamesClient({ data }: { data: TopNewData }) {
   const [days, setDays] = useState<(typeof WINDOWS)[number]>('30');
-  const [price, setPrice] = useState<'free' | 'paid'>('free');
+  const [list, setList] = useState<ListName>('small');
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('');
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'rank', dir: 1 });
   const [open, setOpen] = useState<string | null>(null);
-  const [showUndated, setShowUndated] = useState(false);
+  const [showUndated, setShowUndated] = useState(true);
   const [showEarly, setShowEarly] = useState(false);
   const [showMethod, setShowMethod] = useState(false);
 
-  const win = data.windows[days];
-  const hasPrev = !!win?.changes;
-  const changes = price === 'free' ? win?.changes : null;
-  const themeList = price === 'free' ? win?.themes || [] : [];
-  const games = useMemo(() => (price === 'paid' ? win?.paid : win?.games) || [], [win, price]);
+  const win = data.windows?.[days];
+  const games = useMemo(() => rowsOf(data, days, list), [data, days, list]);
   const byPkg = useMemo(() => new Map(games.map((g) => [g.pkg, g])), [games]);
+  const before = win?.before?.[list] || null;
+  const hasPrev = !!before;
+
   // Counted here, from whichever list is showing, so the panel always matches the table.
   const cats = useMemo(() => {
     const by = new Map<string, { category: string; count: number; installs: number }>();
@@ -106,27 +124,38 @@ export default function TopNewGamesClient({ data }: { data: TopNewData }) {
     return [...by.values()].sort((a, b) => b.count - a.count || b.installs - a.installs);
   }, [games]);
 
+  const changes = useMemo(() => {
+    if (!before) return null;
+    return {
+      entered: games.filter((g) => !(g.pkg in before)),
+      dropped: Object.entries(before)
+        .filter(([pkg]) => !byPkg.has(pkg))
+        .map(([pkg, prevRank]) => ({ pkg, prevRank, title: data.games[pkg]?.title || pkg }))
+        .sort((a, b) => a.prevRank - b.prevRank),
+    };
+  }, [before, games, byPkg, data.games]);
+
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = games.filter((g) =>
+    const filtered = games.filter((g) =>
       (!category || g.genre === category)
       && (!q || g.title.toLowerCase().includes(q) || g.developer.toLowerCase().includes(q) || g.pkg.toLowerCase().includes(q)));
-    const val = (g: TopNewGame): number | string => {
+    const val = (g: TopNewRow): number | string => {
       switch (sort.key) {
         case 'title': return g.title.toLowerCase();
         case 'score': return g.score ?? -1;
         case 'ratings': return g.ratings ?? -1;
         case 'delta': return g.delta ?? -1;
-        default: return (g[sort.key] as number) ?? 0;
+        default: return g[sort.key];
       }
     };
-    return [...list].sort((a, b) => {
+    return [...filtered].sort((a, b) => {
       const x = val(a); const y = val(b);
-      return (x < y ? -1 : x > y ? 1 : 0) * sort.dir || (a.rank || 0) - (b.rank || 0);
+      return (x < y ? -1 : x > y ? 1 : 0) * sort.dir || a.rank - b.rank;
     });
   }, [games, query, category, sort]);
 
-  if (!win || !win.games?.length) {
+  if (!win || !data.games) {
     return (
       <div className="p-6 max-w-3xl">
         <h1 className="text-xl font-semibold">Top New Games</h1>
@@ -135,34 +164,38 @@ export default function TopNewGamesClient({ data }: { data: TopNewData }) {
     );
   }
 
+  const meta = LISTS.find((l) => l.key === list)!;
   const totalInstalls = games.reduce((s, g) => s + g.installs, 0);
   const first = games[0];
   const last = games[games.length - 1];
   const maxCat = Math.max(1, ...cats.map((c) => c.count));
   const failed = data.run ? data.run.charts_failed : 0;
+  const themeList = win.themes?.[list] || [];
+  const early = (win.early || []).map((p) => data.games[p]).filter(Boolean);
+  const undated = (data.undated || []).map((p) => data.games[p]).filter(Boolean);
 
   return (
     <div className="p-4 md:p-6 space-y-5">
       {/* ── heading ─────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl md:text-2xl font-semibold">Top New {price === 'paid' ? 'Paid' : 'Free'} Android Games</h1>
+          <h1 className="text-xl md:text-2xl font-semibold">{meta.heading}</h1>
           <p className="mt-1 text-sm text-gray-400 max-w-3xl">
-            {price === 'paid' ? 'Paid' : 'Free'} games released on Google Play in the last {WINDOW_LABEL[days]} ({days} days), ranked by installs. Release date, installs and rating
-            are read from Google Play itself. Estimates are marked <span className="text-amber-300">Est.</span>
+            Released on Google Play in the last {WINDOW_LABEL[days]} ({days} days), ranked by installs. {meta.about}{' '}
+            Release date, installs and rating are read from Google Play itself. Estimates are marked <span className="text-amber-300">Est.</span>
           </p>
         </div>
         <div className="text-right text-xs text-gray-400">
           <div>Updated <span className="text-white">{fmtDate(data.date)}</span></div>
           {data.run && (
-            <div className={failed ? 'text-amber-300' : ''}>
+            <div className={failed > 5 ? 'text-amber-300' : ''}>
               {data.run.charts_ok} of {data.run.charts_ok + failed} charts read · {compact(data.run.games_seen)} games checked
             </div>
           )}
         </div>
       </div>
 
-      {/* ── window tabs ─────────────────────────────────────────────────── */}
+      {/* ── controls ────────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex rounded-lg border border-white/10 bg-white/5 p-1">
           {WINDOWS.map((d) => (
@@ -177,14 +210,15 @@ export default function TopNewGamesClient({ data }: { data: TopNewData }) {
           ))}
         </div>
         <div className="inline-flex rounded-lg border border-white/10 bg-white/5 p-1">
-          {(['free', 'paid'] as const).map((p) => (
+          {LISTS.map((l) => (
             <button
-              key={p}
+              key={l.key}
               type="button"
-              onClick={() => { setPrice(p); setOpen(null); setCategory(''); }}
-              className={`px-3 py-1.5 text-sm rounded-md capitalize transition ${price === p ? 'bg-white/15 text-white' : 'text-gray-300 hover:text-white'}`}
+              title={l.about}
+              onClick={() => { setList(l.key); setOpen(null); setCategory(''); }}
+              className={`px-3 py-1.5 text-sm rounded-md transition ${list === l.key ? 'bg-white/15 text-white' : 'text-gray-300 hover:text-white'}`}
             >
-              {p} <span className="text-xs text-gray-400">{(p === 'paid' ? win.paid?.length : win.games.length) ?? 0}</span>
+              {l.label} <span className="text-xs text-gray-400">{win.lists[l.key]?.length ?? 0}</span>
             </button>
           ))}
         </div>
@@ -207,7 +241,7 @@ export default function TopNewGamesClient({ data }: { data: TopNewData }) {
         </select>
         <button
           type="button"
-          onClick={() => toCsv(games, `${price}-${days}`)}
+          onClick={() => toCsv(games, `${list}-${days}d`)}
           className="ml-auto inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm hover:bg-white/10"
         >
           <Download size={14} /> CSV
@@ -217,7 +251,7 @@ export default function TopNewGamesClient({ data }: { data: TopNewData }) {
       {/* ── summary ─────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          ['Games released in window', compact(win.pool), 'found on the charts, with a release date on Google Play'],
+          ['Games that qualify', compact(win.pool[list]), 'released in the window, with a release date on Google Play'],
           ['#1 installs', first ? compact(first.installs) : '–', first?.title || ''],
           [`#${games.length} installs`, last ? compact(last.installs) : '–', 'the bar to enter this table'],
           [`Top ${games.length} combined`, compact(totalInstalls), 'installs since release'],
@@ -238,7 +272,7 @@ export default function TopNewGamesClient({ data }: { data: TopNewData }) {
               <Th label="#" k="rank" sort={sort} setSort={setSort} align="left" />
               <Th label="Game" k="title" sort={sort} setSort={setSort} align="left" />
               <th className="px-3 py-2.5 text-left font-medium">Category</th>
-              <Th label="Released" k="ageDays" sort={sort} setSort={setSort} title="Released on, from Google Play" />
+              <Th label="Released" k="ageDays" sort={sort} setSort={setSort} title="Earliest “Released on” date found on Google Play" />
               <Th label="Installs" k="installs" sort={sort} setSort={setSort} title="Google Play's install counter. All of them happened since release." />
               <Th label="Per day" k="perDay" sort={sort} setSort={setSort} title="Installs divided by days since release" />
               <Th label="Last day" k="delta" sort={sort} setSort={setSort} title="Installs gained since the previous daily snapshot" />
@@ -267,8 +301,7 @@ export default function TopNewGamesClient({ data }: { data: TopNewData }) {
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-3 min-w-0">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={`${g.icon}=s72`} alt="" width={36} height={36} loading="lazy" className="h-9 w-9 shrink-0 rounded-lg bg-white/5" />
+                        <Icon src={g.icon} />
                         <div className="min-w-0">
                           <div className="truncate font-medium max-w-[300px]">{g.title}</div>
                           <div className="truncate text-xs text-gray-500 max-w-[300px]">{g.developer}</div>
@@ -284,7 +317,7 @@ export default function TopNewGamesClient({ data }: { data: TopNewData }) {
                       {compact(g.installs)}
                       <div className="text-xs font-normal text-gray-500">{g.installsLabel}</div>
                     </td>
-                    <td className="px-3 py-2 text-right whitespace-nowrap text-gray-300">{compact(g.perDay || 0)}</td>
+                    <td className="px-3 py-2 text-right whitespace-nowrap text-gray-300">{compact(g.perDay)}</td>
                     <td className="px-3 py-2 text-right whitespace-nowrap text-gray-300">
                       {g.delta == null ? <span className="text-gray-600">–</span> : `+${compact(Math.max(0, g.delta))}`}
                     </td>
@@ -315,7 +348,7 @@ export default function TopNewGamesClient({ data }: { data: TopNewData }) {
                             {g.bestFree ? `#${g.bestFree[0]} in ${country(g.bestFree[1])}` : 'not on a Top Free chart today'}</div>
                           <div><span className="text-gray-500">Best Top Grossing position today</span><br />
                             {g.bestGross ? `#${g.bestGross[0]} in ${country(g.bestGross[1])}` : 'not on a Top Grossing chart today'}</div>
-                          <div><span className="text-gray-500">Charts it is on today</span><br />{g.charts}</div>
+                          <div><span className="text-gray-500">Oldest public review found</span><br />{g.oldestReview ? fmtDate(g.oldestReview) : 'none yet'}</div>
                           <div><span className="text-gray-500"><span className="text-amber-300">Est.</span> UA spend, low / mid / high</span><br />
                             {money(ua.low)} / {money(ua.mid)} / {money(ua.high)}</div>
                         </div>
@@ -341,32 +374,28 @@ export default function TopNewGamesClient({ data }: { data: TopNewData }) {
       {/* ── changes, categories, themes ─────────────────────────────────── */}
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-          <h2 className="text-sm font-semibold">Changes since yesterday</h2>
+          <h2 className="text-sm font-semibold">Changes since the last snapshot</h2>
           {changes ? (
             <div className="mt-3 space-y-3 text-sm">
               <div>
-                <div className="text-xs text-gray-400">Entered the top 100 ({changes.entered.length})</div>
+                <div className="text-xs text-gray-400">Entered this table ({changes.entered.length})</div>
                 <ul className="mt-1 space-y-0.5">
-                  {changes.entered.slice(0, 12).map((p) => (
-                    <li key={p} className="truncate text-emerald-300">#{byPkg.get(p)?.rank} {byPkg.get(p)?.title}</li>
-                  ))}
+                  {changes.entered.slice(0, 12).map((g) => <li key={g.pkg} className="truncate text-emerald-300">#{g.rank} {g.title}</li>)}
                   {!changes.entered.length && <li className="text-gray-500">None</li>}
                 </ul>
               </div>
               <div>
                 <div className="text-xs text-gray-400">Dropped out ({changes.dropped.length})</div>
                 <ul className="mt-1 space-y-0.5">
-                  {changes.dropped.slice(0, 12).map((d) => (
-                    <li key={d.pkg} className="truncate text-rose-300">was #{d.prevRank} {d.title}</li>
-                  ))}
+                  {changes.dropped.slice(0, 12).map((d) => <li key={d.pkg} className="truncate text-rose-300">was #{d.prevRank} {d.title}</li>)}
                   {!changes.dropped.length && <li className="text-gray-500">None</li>}
                 </ul>
               </div>
-              <p className="text-xs text-gray-500">Compared with {fmtDate(changes.since)}. A game drops out when it passes {days} days old or is overtaken.</p>
+              <p className="text-xs text-gray-500">Compared with {win.since && fmtDate(win.since)}. A game drops out when it passes {days} days old or is overtaken.</p>
             </div>
           ) : (
             <p className="mt-3 text-sm text-gray-400">
-              {price === 'paid' ? 'Changes are tracked for the free table.' : `This is the first daily snapshot (${fmtDate(data.firstSnapshot)}). Rank movement, new entries and the “Last day” column fill in from the second run.`}
+              Nothing to compare with yet. Rank movement and new entries appear from the next daily run.
             </p>
           )}
         </section>
@@ -390,7 +419,7 @@ export default function TopNewGamesClient({ data }: { data: TopNewData }) {
 
         <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
           <h2 className="text-sm font-semibold">Words that repeat in titles</h2>
-          <p className="mt-1 text-xs text-gray-500">A word or pair of words used by three or more of the top 100.</p>
+          <p className="mt-1 text-xs text-gray-500">A word or pair of words used by three or more games in this table. Click one to see them.</p>
           <div className="mt-3 flex flex-wrap gap-1.5">
             {themeList.map((t) => (
               <button
@@ -408,12 +437,70 @@ export default function TopNewGamesClient({ data }: { data: TopNewData }) {
         </section>
       </div>
 
+      {/* ── undated ─────────────────────────────────────────────────────── */}
+      <section className="rounded-xl border border-white/10 bg-white/[0.03]">
+        <button type="button" onClick={() => setShowUndated(!showUndated)} className="flex w-full flex-wrap items-center gap-2 p-4 text-left">
+          {showUndated ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          <span className="text-sm font-semibold">Growing games with no release date on Google Play ({undated.length})</span>
+          <span className="text-xs text-gray-500">not ranked above, because their age cannot be proved</span>
+        </button>
+        {showUndated && (
+          <div className="border-t border-white/10 p-4">
+            <p className="mb-3 max-w-3xl text-xs text-gray-400">
+              Google Play shows no “Released on” date for these games, and most have no rating and are on no chart, so they cannot be
+              placed in a window. Several are fast-growing ad-driven games. They are found on their developers’ pages and tracked every
+              day from the date in “First seen”, so their growth from then on is measured, not guessed.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[820px] text-sm">
+                <thead className="text-xs text-gray-400">
+                  <tr>
+                    <th className="px-2 py-2 text-left font-medium">Game</th>
+                    <th className="px-2 py-2 text-left font-medium">Category</th>
+                    <th className="px-2 py-2 text-right font-medium">Installs</th>
+                    <th className="px-2 py-2 text-right font-medium" title="Installs gained since the tracker first saw the game. Measured.">Since first seen</th>
+                    <th className="px-2 py-2 text-right font-medium">Rating</th>
+                    <th className="px-2 py-2 text-right font-medium">Updated on Play</th>
+                    <th className="px-2 py-2 text-right font-medium">First seen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {undated.slice(0, 100).map((g) => (
+                    <tr key={g.pkg} className="border-t border-white/5">
+                      <td className="px-2 py-1.5">
+                        <a href={playUrl(g.pkg)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 hover:text-indigo-300">
+                          <Icon src={g.icon} />
+                          <span className="min-w-0">
+                            <span className="block max-w-[280px] truncate">{g.title}</span>
+                            <span className="block max-w-[280px] truncate text-xs text-gray-500">{g.developer}</span>
+                          </span>
+                        </a>
+                      </td>
+                      <td className="px-2 py-1.5 text-gray-300">{g.genre}</td>
+                      <td className="px-2 py-1.5 text-right font-semibold" title={g.installs.toLocaleString('en-US')}>{compact(g.installs)}</td>
+                      <td className="px-2 py-1.5 text-right text-gray-300">
+                        {g.firstInstalls == null ? '–' : `+${compact(Math.max(0, g.installs - g.firstInstalls))}`}
+                      </td>
+                      <td className="px-2 py-1.5 text-right text-gray-300">
+                        {g.score ? `${g.score.toFixed(1)} · ${compact(g.ratings || 0)}` : <span className="text-gray-600">none</span>}
+                      </td>
+                      <td className="px-2 py-1.5 text-right text-gray-300">{g.updated ? fmtDate(g.updated) : '–'}</td>
+                      <td className="px-2 py-1.5 text-right text-gray-300">{fmtDate(g.firstSeen)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
+
       {/* ── public before release ───────────────────────────────────────── */}
-      {!!win.early?.length && (
+      {!!early.length && (
         <section className="rounded-xl border border-white/10 bg-white/[0.03]">
-          <button type="button" onClick={() => setShowEarly(!showEarly)} className="flex w-full items-center gap-2 p-4 text-left">
+          <button type="button" onClick={() => setShowEarly(!showEarly)} className="flex w-full flex-wrap items-center gap-2 p-4 text-left">
             {showEarly ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            <span className="text-sm font-semibold">Released in the last {days} days, but public earlier ({win.early.length})</span>
+            <span className="text-sm font-semibold">Released in the last {days} days, but public earlier ({early.length})</span>
             <span className="text-xs text-gray-500">not ranked above, because some installs came before the release date</span>
           </button>
           {showEarly && (
@@ -435,7 +522,7 @@ export default function TopNewGamesClient({ data }: { data: TopNewData }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {win.early.map((g) => (
+                    {early.map((g) => (
                       <tr key={g.pkg} className="border-t border-white/5">
                         <td className="px-2 py-1.5">
                           <a href={playUrl(g.pkg)} target="_blank" rel="noopener noreferrer" className="hover:text-indigo-300">
@@ -445,7 +532,7 @@ export default function TopNewGamesClient({ data }: { data: TopNewData }) {
                         </td>
                         <td className="px-2 py-1.5 text-gray-300">{g.genre}</td>
                         <td className="px-2 py-1.5 text-right text-gray-300">{g.released && fmtDate(g.released)}</td>
-                        <td className="px-2 py-1.5 text-right text-amber-300">{g.reviewCheck?.oldest && fmtDate(g.reviewCheck.oldest)}</td>
+                        <td className="px-2 py-1.5 text-right text-amber-300">{g.oldestReview && fmtDate(g.oldestReview)}</td>
                         <td className="px-2 py-1.5 text-right font-semibold" title={g.installs.toLocaleString('en-US')}>{compact(g.installs)}</td>
                         <td className="px-2 py-1.5 text-right text-gray-300">{g.score ? g.score.toFixed(1) : '–'}</td>
                       </tr>
@@ -457,57 +544,6 @@ export default function TopNewGamesClient({ data }: { data: TopNewData }) {
           )}
         </section>
       )}
-
-      {/* ── undated ─────────────────────────────────────────────────────── */}
-      <section className="rounded-xl border border-white/10 bg-white/[0.03]">
-        <button type="button" onClick={() => setShowUndated(!showUndated)} className="flex w-full items-center gap-2 p-4 text-left">
-          {showUndated ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          <span className="text-sm font-semibold">Games with no release date on Google Play ({data.undated.length})</span>
-          <span className="text-xs text-gray-500">not ranked above, because their age cannot be proved</span>
-        </button>
-        {showUndated && (
-          <div className="border-t border-white/10 p-4">
-            <p className="mb-3 max-w-3xl text-xs text-gray-400">
-              Google Play shows no “Released on” date for these games, and most have no rating either, so they cannot be placed in a
-              30, 60 or 90 day window. Many are new and growing fast. They are tracked every day from the date in “First seen”, so their
-              growth from then on is measured, not guessed.
-            </p>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-sm">
-                <thead className="text-xs text-gray-400">
-                  <tr>
-                    <th className="px-2 py-2 text-left font-medium">Game</th>
-                    <th className="px-2 py-2 text-left font-medium">Category</th>
-                    <th className="px-2 py-2 text-right font-medium">Installs</th>
-                    <th className="px-2 py-2 text-right font-medium">Last day</th>
-                    <th className="px-2 py-2 text-right font-medium">Rating</th>
-                    <th className="px-2 py-2 text-right font-medium">Best Top Free today</th>
-                    <th className="px-2 py-2 text-right font-medium">First seen</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.undated.slice(0, 100).map((g) => (
-                    <tr key={g.pkg} className="border-t border-white/5">
-                      <td className="px-2 py-1.5">
-                        <a href={playUrl(g.pkg)} target="_blank" rel="noopener noreferrer" className="hover:text-indigo-300">
-                          <span className="block max-w-[280px] truncate">{g.title}</span>
-                          <span className="block max-w-[280px] truncate text-xs text-gray-500">{g.developer}</span>
-                        </a>
-                      </td>
-                      <td className="px-2 py-1.5 text-gray-300">{g.genre}</td>
-                      <td className="px-2 py-1.5 text-right font-semibold" title={g.installs.toLocaleString('en-US')}>{compact(g.installs)}</td>
-                      <td className="px-2 py-1.5 text-right text-gray-300">{g.delta == null ? '–' : `+${compact(Math.max(0, g.delta))}`}</td>
-                      <td className="px-2 py-1.5 text-right text-gray-300">{g.score ? g.score.toFixed(1) : '–'}</td>
-                      <td className="px-2 py-1.5 text-right text-gray-300">{g.bestFree ? `#${g.bestFree[0]} ${g.bestFree[1].toUpperCase()}` : '–'}</td>
-                      <td className="px-2 py-1.5 text-right text-gray-300">{fmtDate(g.firstSeen)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </section>
 
       {/* ── method ──────────────────────────────────────────────────────── */}
       <section className="rounded-xl border border-white/10 bg-white/[0.03]">
@@ -523,20 +559,25 @@ export default function TopNewGamesClient({ data }: { data: TopNewData }) {
               installs inside those {days} days, so its total installs are its installs for the window.
             </p>
             <p>
+              <b className="text-white">The three lists:</b> “Small-team games” are free games that show ads and are not role-playing,
+              strategy or casino games; both facts are declared on the game’s Play page. “All free games” is every free game. Paid games
+              are ranked on their own.
+            </p>
+            <p>
               <b className="text-white">How games are found:</b> Google Play has no “new games” chart. The collector reads Top Free and Top
-              Grossing for all 18 game categories in {data.countries.length} countries, 200 places deep, and checks the release date of every
-              game it has not seen before.
+              Grossing for all 18 game categories in {data.countries.length} countries, 200 places deep, then the Play page of every
+              developer on those charts, and checks the release date of every game it has not seen before.
             </p>
             <p><b className="text-white">Limits:</b></p>
             <ul className="list-disc space-y-1 pl-5">
-              <li>A new game that is not on any of those charts today is missed until it reaches one.</li>
+              <li>A new game is missed while neither it nor any other game from its developer is on one of those charts.</li>
               <li>Games with no release date on Google Play are listed separately and not ranked.</li>
               <li>A game whose public reviews are older than its release date (early access, relaunch) is listed separately and not ranked.</li>
+              <li>The release date differs by country. The earliest date found across 8 countries is used.</li>
               <li>Installs are worldwide. Google Play does not publish installs per country.</li>
               <li>Android only. Apple publishes no install counts.</li>
               <li>The install counter is Google’s. It can include paid and incentivised installs, and Google can correct it later.</li>
               <li>Google updates each game’s counter at its own pace, not every day. A “Last day” of +0 means the counter has not moved since the previous snapshot, not that nobody installed the game.</li>
-              <li>The release date differs by country. The earliest date found across 8 countries is used.</li>
             </ul>
             <p>
               <b className="text-white"><span className="text-amber-300">Est.</span> revenue</b> is a model, not a measurement: installs × an assumed

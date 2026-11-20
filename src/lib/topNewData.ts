@@ -8,7 +8,7 @@
  * Play and falls inside the last 30 days, ranked by Google Play's own install counter.
  */
 import raw from '../../data/top-new/latest.json';
-import type { TopNewData, TopNewGame } from './topNew';
+import { type TopNewData, rowsOf } from './topNew';
 
 const data = raw as unknown as TopNewData;
 
@@ -24,13 +24,11 @@ function ageText(days: number): string {
 }
 
 /**
- * New games in the row shape the existing pages render.
+ * New games in the row shape the existing pages render: every free game, or every paid one.
  * `category` is a Google Play id: GAME for all games, or a genre such as GAME_PUZZLE.
  */
 export function newGames(opts: { category: string; type?: string; num: number; days?: 30 | 60 | 90 | 180 | 270 }) {
-  const win = data.windows?.[String(opts.days ?? 30)];
-  const games: TopNewGame[] = (opts.type === 'paid' ? win?.paid : win?.games) ?? [];
-  return games
+  return rowsOf(data, String(opts.days ?? 30), opts.type === 'paid' ? 'paid' : 'free')
     .filter((g) => opts.category === 'GAME' || g.genreId === opts.category)
     .slice(0, opts.num)
     .map((g, i) => ({
@@ -49,10 +47,10 @@ export function newGames(opts: { category: string; type?: string; num: number; d
       price: g.price,
       rank: i + 1,
       // Measured, not modelled: installs since release divided by days since release.
-      estDailyInstalls: g.perDay || 0,
-      estimatedDailyDownloads: g.perDay || 0,
+      estDailyInstalls: g.perDay,
+      estimatedDailyDownloads: g.perDay,
       releasedDate: g.released,
-      ageText: ageText(g.ageDays ?? 0),
+      ageText: ageText(g.ageDays),
       hasRealDate: true,
       status: 'Live',
       url: `https://play.google.com/store/apps/details?id=${g.pkg}`,
