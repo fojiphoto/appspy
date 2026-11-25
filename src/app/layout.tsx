@@ -7,8 +7,13 @@ import Topbar from "@/components/Topbar";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  // Makes the og:image and twitter:image URLs absolute. Link-preview crawlers ignore relative ones.
+  metadataBase: new URL("https://appspy.factorialstudio.com"),
   title: "AppSpy by Factorial Studio — App Market Intelligence",
   description: "Free app intelligence platform by Factorial Studio Private Limited. Top charts, download estimates, revenue insights from Google Play & App Store.",
+  // The image tags themselves come from opengraph-image.tsx and twitter-image.tsx.
+  openGraph: { siteName: "AppSpy by Factorial Studio", type: "website" },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
